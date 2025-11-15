@@ -43,9 +43,14 @@ Affiliate: aff@example.com / aff123
 
 ```bash
 npm run create
-# Chọn: Complete Resource
+# Chọn: Complete Resource (Customizable)
 # Nhập tên: post
-# Done!
+# Chọn operations: Get All, Create, Update, Delete
+# Pagination? Yes
+# Auth? Yes
+# Admin-only delete? Yes
+# Auto-register? Yes
+# Done! Fully customized + Auto-registered!
 ```
 
 ## 📚 Đọc Tiếp

@@ -34,7 +34,8 @@
     "test:coverage": "NODE_ENV=test jest --coverage",
     "test:unit": "NODE_ENV=test jest --testPathPattern=tests/unit",
     "test:integration": "NODE_ENV=test jest --testPathPattern=tests/integration",
-    "create": "node src/cli/create.js"
+    "create": "node src/cli/create-advanced.js",
+    "create:basic": "node src/cli/create.js"
   },
   "keywords": [
     "supabase",
