@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Supabase sẽ được quản lý bởi Supabase CLI
+  # File này để reference hoặc custom services khác nếu cần
+  
+  # API Server (optional - nếu muốn containerize API)
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+    command: npm run dev
+
+  # Nếu không dùng Supabase local, có thể dùng postgres standalone
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: myapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
