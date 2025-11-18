@@ -1,281 +1,326 @@
-# 🎨 CLI Guide - Tạo Code Tự Động
+# 🎨 CLI Guide - Unified Generator
 
-## 🚀 Interactive CLI (Như NestJS)
-
-### Advanced CLI (Recommended)
+## 🚀 One Command for Everything
 
 ```bash
 npm run create
+# or
+npm run g
+# or
+npm run generate
 ```
 
-**Features:**
-- ✅ Chọn operations cần thiết (Get All, Get By ID, Create, Update, Delete)
-- ✅ Tùy chọn pagination
-- ✅ Tùy chọn authentication
-- ✅ Tùy chọn admin-only
-- ✅ **Auto-register route** trong index.js
+**Giống NestJS/Angular - Một lệnh duy nhất!**
 
-### Basic CLI
+## 🎯 6 Presets
+
+### 1. 🎯 Ultimate (All features)
+**Perfect for:** Main business entities
+
+**Includes:**
+- All CRUD operations
+- Search & Export
+- Pagination
+- Authentication
+- Admin-only delete
+- Validation
+- Tests
+- RLS policies
+- Timestamps
+
+**Use case:** Products, Orders, Posts
+
+### 2. 📦 CRUD (Standard)
+**Perfect for:** Standard entities
+
+**Includes:**
+- All CRUD operations
+- Pagination
+- Authentication
+- Admin-only delete
+- Validation
+- RLS policies
+- Timestamps
+
+**Use case:** Categories, Tags, Comments
+
+### 3. 📖 Read-Only (Public)
+**Perfect for:** Reference data
+
+**Includes:**
+- Get All + Get By ID
+- Pagination
+- No authentication
+- Timestamps
+
+**Use case:** Countries, Cities, Static data
+
+### 4. 🔐 User-Protected
+**Perfect for:** User-specific data
+
+**Includes:**
+- All CRUD operations
+- Pagination
+- Authentication (users manage own)
+- Validation
+- RLS policies
+- Timestamps
+
+**Use case:** Cart, Wishlist, Favorites
+
+### 5. 👑 Admin-Only
+**Perfect for:** System management
+
+**Includes:**
+- All CRUD operations
+- Pagination
+- Authentication
+- Admin-only for ALL operations
+- Validation
+- Export
+- RLS policies
+- Timestamps
+
+**Use case:** Settings, Configurations
+
+### 6. 🎨 Custom
+**Perfect for:** Special requirements
+
+**Includes:**
+- Full customization
+- Choose everything yourself
+
+## 📋 Complete Workflow
 
 ```bash
-npm run create:basic
-```
+$ npm run create
 
-Tạo tất cả operations mặc định (không có options).
+🚀 Supabase API Generator
 
-## 📋 Advanced CLI Workflow
+? Choose a preset:
+  🎯 Ultimate (All features) - Full CRUD + Search + Export + Tests + RLS
+  📦 CRUD (Standard) - Basic CRUD operations with auth
+  📖 Read-Only (Public) - Get All + Get By ID, no auth
+  🔐 User-Protected - Users manage their own data
+  👑 Admin-Only - All operations require admin
+❯ 🎨 Custom - Choose everything yourself
 
-### 1. Chọn Loại Resource
-
-```
-? What would you like to create?
-  > Complete Resource (Customizable)
-    Controller only
-    Route only
-    Service only
-    Middleware
-    Migration only
-```
-
-### 2. Nhập Tên
-
-```
 ? Resource name (singular, lowercase): post
-```
 
-### 3. Chọn Operations
-
-```
-? Select operations to include:
-  ◉ Get All (List)
-  ◉ Get By ID
-  ◉ Create
-  ◉ Update
-  ◉ Delete
-```
-
-### 4. Tùy Chọn Pagination
-
-```
-? Include pagination for Get All? (Y/n)
-```
-
-### 5. Tùy Chọn Authentication
-
-```
-? Require authentication? (Y/n)
-```
-
-### 6. Tùy Chọn Admin Role
-
-```
-? Require admin role for delete? (Y/n)
-```
-
-### 7. Auto-Register Route
-
-```
-? Auto-register route in src/routes/index.js? (Y/n)
-```
-
-### 8. Kết Quả
-
-```
-🚀 Creating resource with custom options...
+🎯 Generating resource...
 
 1️⃣  Creating migration...
-✅ Migration created
+   ✅ 20241114120000_add_posts_table.sql
 
 2️⃣  Creating controller...
-✅ Controller created
+   ✅ postController.js
 
 3️⃣  Creating route...
-✅ Route created
+   ✅ postRoutes.js
 
-4️⃣  Registering route...
-✅ Route registered in src/routes/index.js
+4️⃣  Adding validation...
+   ✅ Updated validation.js
 
-✅ Resource created successfully!
+5️⃣  Auto-registering route...
+   ✅ Updated routes/index.js
+
+6️⃣  Creating tests...
+   ✅ Created post.test.js
+
+✅ Resource generated successfully!
 
 📝 Next steps:
-1. Edit migration SQL
-2. npm run migration:up
-3. Test in Swagger UI
+1. Edit migration: supabase/migrations/*_add_posts_table.sql
+2. Customize columns and business logic
+3. Apply migration: npm run migration:up
+4. Test in Swagger: http://localhost:3000/api-docs
 ```
 
-## 📝 Ví Dụ Use Cases
+## ✨ Auto-Implementation
 
-### Tạo Blog System
+### 1. Migration
+**Auto-generates:**
+- Table structure
+- Indexes
+- RLS policies
+- Triggers (updated_at)
+- Full-text search (if enabled)
 
-```bash
-# Post (Full CRUD + Pagination + Auth)
-npm run create
-# → Complete Resource
-# → post
-# → Select all operations
-# → Yes to pagination
-# → Yes to auth
-# → Yes to auto-register
+### 2. Controller
+**Auto-generates:**
+- All selected operations
+- Pagination logic
+- Error handling
+- Audit logging
+- Swagger docs
 
-# Comment (No pagination, auth required)
-npm run create
-# → Complete Resource
-# → comment
-# → Select all operations
-# → No to pagination
-# → Yes to auth
+### 3. Route
+**Auto-generates:**
+- All endpoints
+- Authentication middleware
+- Authorization middleware
+- Validation middleware
 
-# Category (Read-only for users)
-npm run create
-# → Complete Resource
-# → category
-# → Select: Get All, Get By ID only
-# → No to pagination
-# → Yes to auth
-```
-
-### Tạo E-commerce
-
-```bash
-# Product (Public read, admin write)
-npm run create
-# → product
-# → All operations
-# → Yes to pagination
-# → Yes to auth
-# → Yes to admin for delete
-
-# Order (User-specific)
-npm run create
-# → order
-# → All operations
-# → Yes to pagination
-# → Yes to auth
-
-# Cart (No delete, user-specific)
-npm run create
-# → cart
-# → Get All, Get By ID, Create, Update
-# → No to pagination
-# → Yes to auth
-```
-
-### Tạo API-Only Resource (No Auth)
-
-```bash
-npm run create
-# → public-data
-# → Get All, Get By ID
-# → Yes to pagination
-# → No to auth  ← Public API
-```
-
-## ⚡ Time Savings
-
-- **Manual**: 40 phút
-- **Basic CLI**: 3 phút
-- **Advanced CLI**: 2 phút (với auto-register!)
-- **Saved**: 95%!
-
-## 🎯 Workflow
-
-1. **Create resource**: `npm run create`
-2. **Edit migration**: `supabase/migrations/*.sql`
-3. **Apply migration**: `npm run migration:up`
-4. **Register route**: `src/routes/index.js`
-5. **Test**: Swagger UI
-
-## 🎯 Customization Options
-
-### Operations
-- **Get All**: List all resources (with optional pagination)
-- **Get By ID**: Get single resource
-- **Create**: Create new resource
-- **Update**: Update existing resource
-- **Delete**: Delete resource
-
-### Features
-- **Pagination**: Add pagination to Get All
-- **Authentication**: Require JWT token
-- **Admin Role**: Require admin role for delete
-- **Auto-Register**: Automatically add route to index.js
-
-## 💡 Best Practices
-
-### When to Use What
-
-**Full CRUD + Pagination + Auth:**
-- User-generated content (posts, comments)
-- E-commerce (products, orders)
-- Admin resources
-
-**Read-Only + Pagination:**
-- Public data (categories, tags)
-- Reference data
-
-**No Pagination:**
-- Small datasets (<100 items)
-- User-specific data (cart, wishlist)
-
-**No Auth:**
-- Public APIs
-- Health checks
-- Static data
-
-## 📚 Commands
-
-```bash
-# Advanced CLI (Recommended)
-npm run create
-
-# Basic CLI (All operations, no options)
-npm run create:basic
-
-# Non-interactive generators
-npm run generate:controller post
-npm run generate:route post
-
-# Migration
-npm run migration:new add_posts
-npm run migration:up
-```
-
-## 🔧 Auto-Register Feature
-
-CLI tự động thêm route vào `src/routes/index.js`:
-
-**Before:**
+### 4. Validation
+**Auto-adds to validation.js:**
 ```javascript
-import express from 'express';
-import authRoutes from './authRoutes.js';
-import userRoutes from './userRoutes.js';
+createPost: Joi.object({
+  name: Joi.string().min(2).max(200).required(),
+  description: Joi.string().allow('', null)
+}),
 
-const router = express.Router();
-
-router.use('/auth', authRoutes);
-router.use('/users', userRoutes);
-
-export default router;
+updatePost: Joi.object({
+  name: Joi.string().min(2).max(200),
+  description: Joi.string().allow('', null)
+}).min(1),
 ```
 
-**After (auto-generated):**
+### 5. Route Registration
+**Auto-adds to routes/index.js:**
 ```javascript
-import express from 'express';
-import authRoutes from './authRoutes.js';
-import userRoutes from './userRoutes.js';
-import postRoutes from './postRoutes.js';  // ← Added
-
-const router = express.Router();
-
-router.use('/auth', authRoutes);
-router.use('/users', userRoutes);
-router.use('/posts', postRoutes);  // ← Added
-
-export default router;
+import postRoutes from './postRoutes.js';
+router.use('/posts', postRoutes);
 ```
 
 **No manual editing needed!** ✨
 
+### 6. Tests (Optional)
+**Auto-generates:**
+- Integration tests
+- All CRUD operations
+- Authentication tests
+
+## 🎯 Examples
+
+### Example 1: Blog Post (Ultimate)
+
+```bash
+npm run create
+→ Ultimate
+→ post
+
+Generated:
+✅ Migration with RLS, indexes, search
+✅ Controller with all operations
+✅ Route with auth & validation
+✅ Validation schemas
+✅ Integration tests
+✅ Auto-registered in routes/index.js
+```
+
+### Example 2: User Cart (Protected)
+
+```bash
+npm run create
+→ User-Protected
+→ cart
+
+Generated:
+✅ Migration with RLS (users manage own)
+✅ Controller with CRUD
+✅ Route with auth
+✅ Validation schemas
+✅ Auto-registered
+```
+
+### Example 3: Category (Read-Only)
+
+```bash
+npm run create
+→ Read-Only
+→ category
+
+Generated:
+✅ Migration (no RLS)
+✅ Controller (Get All, Get By ID)
+✅ Route (no auth)
+✅ Auto-registered
+```
+
+### Example 4: Settings (Admin-Only)
+
+```bash
+npm run create
+→ Admin-Only
+→ setting
+
+Generated:
+✅ Migration with RLS
+✅ Controller with CRUD
+✅ Route with admin-only middleware
+✅ Validation schemas
+✅ Auto-registered
+```
+
+### Example 5: Custom
+
+```bash
+npm run create
+→ Custom
+→ notification
+
+? Select operations:
+  ◉ Get All
+  ◉ Get By ID
+  ◯ Create
+  ◯ Update
+  ◉ Delete
+
+? Pagination? Yes
+? Authentication? Yes
+? Admin-only delete? No
+? Validation? No
+? Tests? No
+? Soft delete? Yes
+? Timestamps? Yes
+? RLS policies? Yes
+
+Generated:
+✅ Exactly what you need!
+```
+
+## 💡 Best Practices
+
+### Preset Selection Guide
+
+| Use Case | Preset | Why |
+|----------|--------|-----|
+| **Products** | Ultimate | Need search, export, full features |
+| **Orders** | Ultimate | Need all features + audit |
+| **Categories** | CRUD | Standard CRUD is enough |
+| **Tags** | Read-Only | Just reference data |
+| **Cart** | User-Protected | Users manage own |
+| **Wishlist** | User-Protected | Users manage own |
+| **Settings** | Admin-Only | System management |
+| **Blog (public)** | Read-Only | Public access |
+| **Notifications** | Custom | Special requirements |
+
+### When to Use Custom
+
+- ✅ Unique operation combinations
+- ✅ Special authentication needs
+- ✅ Soft delete requirements
+- ✅ No standard preset fits
+
+## ⚡ Time Savings
+
+| Method | Time | Savings |
+|--------|------|---------|
+| **Manual** | 60 min | 0% |
+| **CLI** | 1 min | **98%!** |
+
+## 🎊 Summary
+
+**One CLI to rule them all:**
+- ✅ One command: `npm run create`
+- ✅ 6 smart presets
+- ✅ Full customization
+- ✅ Auto-implementation
+- ✅ No manual editing
+- ✅ Production-ready code
+
+**Just like NestJS/Angular!** 🚀✨
+
 ---
 
-**Tạo features trong 30 giây với full customization!** ⚡
+**Next:** [Quick Start](QUICK_START.md) | [API Examples](API.md)

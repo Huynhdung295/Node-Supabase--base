@@ -43,14 +43,13 @@ Affiliate: aff@example.com / aff123
 
 ```bash
 npm run create
-# Chọn: Complete Resource (Customizable)
+# Chọn preset: 🎯 Ultimate (All features)
 # Nhập tên: post
-# Chọn operations: Get All, Create, Update, Delete
-# Pagination? Yes
-# Auth? Yes
-# Admin-only delete? Yes
-# Auto-register? Yes
-# Done! Fully customized + Auto-registered!
+# Done! Auto-generated + Auto-registered!
+
+# Hoặc dùng alias:
+npm run g
+npm run generate
 ```
 
 ## 📚 Đọc Tiếp
