@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Integration/Plugin Installer - Add Firebase, WebSocket, Redis, etc.
+// Integration Installer - Complete with all integrations
 
 import inquirer from 'inquirer';
 import fs from 'fs';
@@ -8,7 +8,6 @@ import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const INTEGRATIONS = {
   firebase: {
@@ -21,19 +20,13 @@ const INTEGRATIONS = {
     name: '🔌 WebSocket',
     description: 'Real-time WebSocket with Socket.io',
     packages: ['socket.io'],
-    envVars: ['WEBSOCKET_PORT']
+    envVars: []
   },
   redis: {
     name: '⚡ Redis',
     description: 'Redis caching and session store',
-    packages: ['redis', 'connect-redis', 'express-session'],
+    packages: ['redis'],
     envVars: ['REDIS_URL']
-  },
-  s3: {
-    name: '☁️ AWS S3',
-    description: 'AWS S3 file storage',
-    packages: ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
-    envVars: ['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET']
   },
   sendgrid: {
     name: '📧 SendGrid',
@@ -41,452 +34,19 @@ const INTEGRATIONS = {
     packages: ['@sendgrid/mail'],
     envVars: ['SENDGRID_API_KEY', 'SENDGRID_FROM_EMAIL']
   },
-  stripe: {
-    name: '💳 Stripe',
-    description: 'Payment processing with Stripe',
-    packages: ['stripe'],
-    envVars: ['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY', 'STRIPE_WEBHOOK_SECRET']
-  },
-  twilio: {
-    name: '📱 Twilio',
-    description: 'SMS and WhatsApp messaging',
-    packages: ['twilio'],
-    envVars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER']
-  },
-  elasticsearch: {
-    name: '🔍 Elasticsearch',
-    description: 'Advanced search with Elasticsearch',
-    packages: ['@elastic/elasticsearch'],
-    envVars: ['ELASTICSEARCH_NODE', 'ELASTICSEARCH_USERNAME', 'ELASTICSEARCH_PASSWORD']
-  },
-  bull: {
-    name: '📋 Bull Queue',
-    description: 'Job queue with Bull (requires Redis)',
-    packages: ['bull'],
-    envVars: ['REDIS_URL'],
-    requires: ['redis']
-  },
-  passport: {
-    name: '🔐 Passport.js',
-    description: 'OAuth providers (Google, Facebook, GitHub)',
-    packages: ['passport', 'passport-google-oauth20', 'passport-facebook', 'passport-github2'],
-    envVars: ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET']
+  s3: {
+    name: '☁️ AWS S3',
+    description: 'AWS S3 file storage',
+    packages: ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
+    envVars: ['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET']
   }
 };
 
-// ============================================
-// FIREBASE INTEGRATION
-// ============================================
-
-const installFirebase = () => {
-  console.log('\n🔥 Installing Firebase...\n');
-
-  // 1. Create config
-  const configPath = path.join(process.cwd(), 'src', 'config', 'firebase.js');
-  const configCode = `// Firebase Admin SDK Configuration
-
-import admin from 'firebase-admin';
-import { logger } from '../utils/logger.js';
-
-let firebaseApp;
-
-export const initializeFirebase = () => {
-  try {
-    if (firebaseApp) {
-      return firebaseApp;
-    }
-
-    const serviceAccount = {
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\\\n/g, '\\n'),
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL
-    };
-
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      storageBucket: \`\${process.env.FIREBASE_PROJECT_ID}.appspot.com\`
-    });
-
-    logger.success('Firebase initialized');
-    return firebaseApp;
-  } catch (error) {
-    logger.error('Firebase initialization failed', { error: error.message });
-    throw error;
+const ensureDir = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
   }
 };
-
-export const getFirestore = () => {
-  if (!firebaseApp) initializeFirebase();
-  return admin.firestore();
-};
-
-export const getAuth = () => {
-  if (!firebaseApp) initializeFirebase();
-  return admin.auth();
-};
-
-export const getStorage = () => {
-  if (!firebaseApp) initializeFirebase();
-  return admin.storage();
-};
-
-export default { initializeFirebase, getFirestore, getAuth, getStorage };
-`;
-
-  fs.writeFileSync(configPath, configCode);
-  console.log('✅ Created src/config/firebase.js');
-
-  // 2. Create service
-  const servicePath = path.join(process.cwd(), 'src', 'services', 'firebaseService.js');
-  const serviceCode = `// Firebase Service
-
-import { getFirestore, getAuth, getStorage } from '../config/firebase.js';
-import { logger } from '../utils/logger.js';
-
-/**
- * Firestore Operations
- */
-export const createDocument = async (collection, data) => {
-  try {
-    const db = getFirestore();
-    const docRef = await db.collection(collection).add(data);
-    logger.info(\`Document created in \${collection}\`, { id: docRef.id });
-    return { id: docRef.id, ...data };
-  } catch (error) {
-    logger.error('Firestore create error', { error: error.message });
-    throw error;
-  }
-};
-
-export const getDocument = async (collection, id) => {
-  try {
-    const db = getFirestore();
-    const doc = await db.collection(collection).doc(id).get();
-    if (!doc.exists) return null;
-    return { id: doc.id, ...doc.data() };
-  } catch (error) {
-    logger.error('Firestore get error', { error: error.message });
-    throw error;
-  }
-};
-
-export const updateDocument = async (collection, id, data) => {
-  try {
-    const db = getFirestore();
-    await db.collection(collection).doc(id).update(data);
-    logger.info(\`Document updated in \${collection}\`, { id });
-    return { id, ...data };
-  } catch (error) {
-    logger.error('Firestore update error', { error: error.message });
-    throw error;
-  }
-};
-
-export const deleteDocument = async (collection, id) => {
-  try {
-    const db = getFirestore();
-    await db.collection(collection).doc(id).delete();
-    logger.info(\`Document deleted from \${collection}\`, { id });
-    return true;
-  } catch (error) {
-    logger.error('Firestore delete error', { error: error.message });
-    throw error;
-  }
-};
-
-/**
- * Firebase Auth Operations
- */
-export const verifyFirebaseToken = async (token) => {
-  try {
-    const auth = getAuth();
-    const decodedToken = await auth.verifyIdToken(token);
-    return decodedToken;
-  } catch (error) {
-    logger.error('Firebase token verification failed', { error: error.message });
-    throw error;
-  }
-};
-
-export const createFirebaseUser = async (email, password, displayName) => {
-  try {
-    const auth = getAuth();
-    const user = await auth.createUser({
-      email,
-      password,
-      displayName
-    });
-    logger.info('Firebase user created', { uid: user.uid });
-    return user;
-  } catch (error) {
-    logger.error('Firebase user creation failed', { error: error.message });
-    throw error;
-  }
-};
-
-/**
- * Firebase Storage Operations
- */
-export const uploadFile = async (filePath, destination) => {
-  try {
-    const storage = getStorage();
-    const bucket = storage.bucket();
-    await bucket.upload(filePath, { destination });
-    logger.info('File uploaded to Firebase Storage', { destination });
-    return \`https://storage.googleapis.com/\${bucket.name}/\${destination}\`;
-  } catch (error) {
-    logger.error('Firebase upload error', { error: error.message });
-    throw error;
-  }
-};
-
-export default {
-  createDocument,
-  getDocument,
-  updateDocument,
-  deleteDocument,
-  verifyFirebaseToken,
-  createFirebaseUser,
-  uploadFile
-};
-`;
-
-  fs.writeFileSync(servicePath, serviceCode);
-  console.log('✅ Created src/services/firebaseService.js');
-
-  // 3. Update .env.example
-  updateEnvExample(['FIREBASE_PROJECT_ID', 'FIREBASE_PRIVATE_KEY', 'FIREBASE_CLIENT_EMAIL']);
-
-  console.log('\n✅ Firebase integration installed!\n');
-  console.log('📝 Next steps:');
-  console.log('1. Add Firebase credentials to .env');
-  console.log('2. Import in server.js: import { initializeFirebase } from "./config/firebase.js"');
-  console.log('3. Initialize: initializeFirebase()');
-  console.log('4. Use firebaseService in your controllers\n');
-};
-
-// ============================================
-// WEBSOCKET INTEGRATION
-// ============================================
-
-const installWebSocket = () => {
-  console.log('\n🔌 Installing WebSocket...\n');
-
-  // 1. Create config
-  const configPath = path.join(process.cwd(), 'src', 'config', 'websocket.js');
-  const configCode = `// WebSocket Configuration with Socket.io
-
-import { Server } from 'socket.io';
-import { logger } from '../utils/logger.js';
-
-let io;
-
-export const initializeWebSocket = (server) => {
-  io = new Server(server, {
-    cors: {
-      origin: process.env.CORS_ORIGIN || '*',
-      credentials: true
-    }
-  });
-
-  io.on('connection', (socket) => {
-    logger.info('Client connected', { socketId: socket.id });
-
-    socket.on('disconnect', () => {
-      logger.info('Client disconnected', { socketId: socket.id });
-    });
-
-    // Example: Join room
-    socket.on('join', (room) => {
-      socket.join(room);
-      logger.info('Client joined room', { socketId: socket.id, room });
-    });
-
-    // Example: Send message
-    socket.on('message', (data) => {
-      logger.info('Message received', { socketId: socket.id, data });
-      io.to(data.room).emit('message', data);
-    });
-  });
-
-  logger.success('WebSocket initialized');
-  return io;
-};
-
-export const getIO = () => {
-  if (!io) {
-    throw new Error('WebSocket not initialized');
-  }
-  return io;
-};
-
-export const emitToRoom = (room, event, data) => {
-  if (io) {
-    io.to(room).emit(event, data);
-  }
-};
-
-export const emitToAll = (event, data) => {
-  if (io) {
-    io.emit(event, data);
-  }
-};
-
-export default { initializeWebSocket, getIO, emitToRoom, emitToAll };
-`;
-
-  fs.writeFileSync(configPath, configCode);
-  console.log('✅ Created src/config/websocket.js');
-
-  // 2. Create service
-  const servicePath = path.join(process.cwd(), 'src', 'services', 'websocketService.js');
-  const serviceCode = `// WebSocket Service
-
-import { getIO, emitToRoom, emitToAll } from '../config/websocket.js';
-import { logger } from '../utils/logger.js';
-
-/**
- * Send notification to specific user
- */
-export const sendNotification = (userId, notification) => {
-  try {
-    emitToRoom(\`user_\${userId}\`, 'notification', notification);
-    logger.info('Notification sent', { userId });
-  } catch (error) {
-    logger.error('Failed to send notification', { error: error.message });
-  }
-};
-
-/**
- * Broadcast message to all connected clients
- */
-export const broadcast = (event, data) => {
-  try {
-    emitToAll(event, data);
-    logger.info('Broadcast sent', { event });
-  } catch (error) {
-    logger.error('Failed to broadcast', { error: error.message });
-  }
-};
-
-/**
- * Send message to specific room
- */
-export const sendToRoom = (room, event, data) => {
-  try {
-    emitToRoom(room, event, data);
-    logger.info('Message sent to room', { room, event });
-  } catch (error) {
-    logger.error('Failed to send to room', { error: error.message });
-  }
-};
-
-export default { sendNotification, broadcast, sendToRoom };
-`;
-
-  fs.writeFileSync(servicePath, serviceCode);
-  console.log('✅ Created src/services/websocketService.js');
-
-  // 3. Update server.js instructions
-  console.log('\n✅ WebSocket integration installed!\n');
-  console.log('📝 Next steps:');
-  console.log('1. Update src/server.js:');
-  console.log('   import { createServer } from "http";');
-  console.log('   import { initializeWebSocket } from "./config/websocket.js";');
-  console.log('   const server = createServer(app);');
-  console.log('   initializeWebSocket(server);');
-  console.log('   server.listen(PORT, ...)');
-  console.log('2. Use websocketService in your controllers\n');
-};
-
-// ============================================
-// REDIS INTEGRATION
-// ============================================
-
-const installRedis = () => {
-  console.log('\n⚡ Installing Redis...\n');
-
-  const configPath = path.join(process.cwd(), 'src', 'config', 'redis.js');
-  const configCode = `// Redis Configuration
-
-import { createClient } from 'redis';
-import { logger } from '../utils/logger.js';
-
-let redisClient;
-
-export const initializeRedis = async () => {
-  try {
-    redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379'
-    });
-
-    redisClient.on('error', (err) => logger.error('Redis error', { error: err.message }));
-    redisClient.on('connect', () => logger.success('Redis connected'));
-
-    await redisClient.connect();
-    return redisClient;
-  } catch (error) {
-    logger.error('Redis initialization failed', { error: error.message });
-    throw error;
-  }
-};
-
-export const getRedis = () => {
-  if (!redisClient) {
-    throw new Error('Redis not initialized');
-  }
-  return redisClient;
-};
-
-// Cache helpers
-export const setCache = async (key, value, ttl = 3600) => {
-  try {
-    const client = getRedis();
-    await client.setEx(key, ttl, JSON.stringify(value));
-  } catch (error) {
-    logger.error('Redis set error', { error: error.message });
-  }
-};
-
-export const getCache = async (key) => {
-  try {
-    const client = getRedis();
-    const value = await client.get(key);
-    return value ? JSON.parse(value) : null;
-  } catch (error) {
-    logger.error('Redis get error', { error: error.message });
-    return null;
-  }
-};
-
-export const deleteCache = async (key) => {
-  try {
-    const client = getRedis();
-    await client.del(key);
-  } catch (error) {
-    logger.error('Redis delete error', { error: error.message });
-  }
-};
-
-export default { initializeRedis, getRedis, setCache, getCache, deleteCache };
-`;
-
-  fs.writeFileSync(configPath, configCode);
-  console.log('✅ Created src/config/redis.js');
-
-  updateEnvExample(['REDIS_URL']);
-
-  console.log('\n✅ Redis integration installed!\n');
-  console.log('📝 Next steps:');
-  console.log('1. Start Redis: docker run -d -p 6379:6379 redis');
-  console.log('2. Add REDIS_URL to .env');
-  console.log('3. Import in server.js: import { initializeRedis } from "./config/redis.js"');
-  console.log('4. Initialize: await initializeRedis()\n');
-};
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
 
 const updateEnvExample = (vars) => {
   const envPath = path.join(process.cwd(), '.env.example');
@@ -499,27 +59,274 @@ const updateEnvExample = (vars) => {
   });
   
   fs.writeFileSync(envPath, content);
-  console.log('✅ Updated .env.example');
 };
 
 const installPackages = (packages) => {
-  console.log(`\n📦 Installing packages: ${packages.join(', ')}...\n`);
+  console.log(`\n📦 Installing: ${packages.join(', ')}...`);
   try {
     execSync(`npm install ${packages.join(' ')}`, { stdio: 'inherit' });
-    console.log('\n✅ Packages installed');
+    console.log('✅ Packages installed\n');
   } catch (error) {
-    console.error('❌ Package installation failed');
+    console.error('❌ Installation failed');
     throw error;
   }
 };
 
-// ============================================
-// MAIN CLI
-// ============================================
+// Integration installers
+const INSTALLERS = {
+  firebase: () => {
+    console.log('🔥 Setting up Firebase...\n');
+    
+    const configPath = path.join(process.cwd(), 'src', 'config', 'firebase.js');
+    fs.writeFileSync(configPath, `import admin from 'firebase-admin';
+import { logger } from '../utils/logger.js';
+
+let firebaseApp;
+
+export const initializeFirebase = () => {
+  if (firebaseApp) return firebaseApp;
+  
+  firebaseApp = admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\\\n/g, '\\n'),
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL
+    })
+  });
+  
+  logger.success('Firebase initialized');
+  return firebaseApp;
+};
+
+export const getFirestore = () => admin.firestore();
+export const getAuth = () => admin.auth();
+export const getStorage = () => admin.storage();
+
+export default { initializeFirebase, getFirestore, getAuth, getStorage };
+`);
+    
+    const servicePath = path.join(process.cwd(), 'src', 'services', 'firebaseService.js');
+    fs.writeFileSync(servicePath, `import { getFirestore, getAuth, getStorage } from '../config/firebase.js';
+import { logger } from '../utils/logger.js';
+
+export const createDocument = async (collection, data) => {
+  const db = getFirestore();
+  const docRef = await db.collection(collection).add(data);
+  logger.info(\`Document created in \${collection}\`, { id: docRef.id });
+  return { id: docRef.id, ...data };
+};
+
+export const getDocument = async (collection, id) => {
+  const db = getFirestore();
+  const doc = await db.collection(collection).doc(id).get();
+  return doc.exists ? { id: doc.id, ...doc.data() } : null;
+};
+
+export default { createDocument, getDocument };
+`);
+    
+    console.log('✅ Created src/config/firebase.js');
+    console.log('✅ Created src/services/firebaseService.js');
+    updateEnvExample(['FIREBASE_PROJECT_ID', 'FIREBASE_PRIVATE_KEY', 'FIREBASE_CLIENT_EMAIL']);
+  },
+  
+  websocket: () => {
+    console.log('🔌 Setting up WebSocket...\n');
+    
+    const configPath = path.join(process.cwd(), 'src', 'config', 'websocket.js');
+    fs.writeFileSync(configPath, `import { Server } from 'socket.io';
+import { logger } from '../utils/logger.js';
+
+let io;
+
+export const initializeWebSocket = (server) => {
+  io = new Server(server, {
+    cors: { origin: process.env.CORS_ORIGIN || '*', credentials: true }
+  });
+  
+  io.on('connection', (socket) => {
+    logger.info('Client connected', { socketId: socket.id });
+    
+    socket.on('disconnect', () => {
+      logger.info('Client disconnected', { socketId: socket.id });
+    });
+    
+    socket.on('join', (room) => {
+      socket.join(room);
+      logger.info('Client joined room', { socketId: socket.id, room });
+    });
+  });
+  
+  logger.success('WebSocket initialized');
+  return io;
+};
+
+export const getIO = () => io;
+export const emitToRoom = (room, event, data) => io?.to(room).emit(event, data);
+export const emitToAll = (event, data) => io?.emit(event, data);
+
+export default { initializeWebSocket, getIO, emitToRoom, emitToAll };
+`);
+    
+    const servicePath = path.join(process.cwd(), 'src', 'services', 'websocketService.js');
+    fs.writeFileSync(servicePath, `import { emitToRoom, emitToAll } from '../config/websocket.js';
+import { logger } from '../utils/logger.js';
+
+export const sendNotification = (userId, notification) => {
+  emitToRoom(\`user_\${userId}\`, 'notification', notification);
+  logger.info('Notification sent', { userId });
+};
+
+export const broadcast = (event, data) => {
+  emitToAll(event, data);
+  logger.info('Broadcast sent', { event });
+};
+
+export default { sendNotification, broadcast };
+`);
+    
+    console.log('✅ Created src/config/websocket.js');
+    console.log('✅ Created src/services/websocketService.js');
+  },
+  
+  redis: () => {
+    console.log('⚡ Setting up Redis...\n');
+    
+    const configPath = path.join(process.cwd(), 'src', 'config', 'redis.js');
+    fs.writeFileSync(configPath, `import { createClient } from 'redis';
+import { logger } from '../utils/logger.js';
+
+let redisClient;
+
+export const initializeRedis = async () => {
+  redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+  redisClient.on('error', (err) => logger.error('Redis error', { error: err.message }));
+  await redisClient.connect();
+  logger.success('Redis connected');
+  return redisClient;
+};
+
+export const getRedis = () => redisClient;
+
+export const setCache = async (key, value, ttl = 3600) => {
+  await redisClient.setEx(key, ttl, JSON.stringify(value));
+};
+
+export const getCache = async (key) => {
+  const value = await redisClient.get(key);
+  return value ? JSON.parse(value) : null;
+};
+
+export const deleteCache = async (key) => {
+  await redisClient.del(key);
+};
+
+export default { initializeRedis, getRedis, setCache, getCache, deleteCache };
+`);
+    
+    console.log('✅ Created src/config/redis.js');
+    updateEnvExample(['REDIS_URL']);
+  },
+  
+  sendgrid: () => {
+    console.log('📧 Setting up SendGrid...\n');
+    
+    const configPath = path.join(process.cwd(), 'src', 'config', 'sendgrid.js');
+    fs.writeFileSync(configPath, `import sgMail from '@sendgrid/mail';
+import { logger } from '../utils/logger.js';
+
+export const initializeSendGrid = () => {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  logger.success('SendGrid initialized');
+};
+
+export const sendEmail = async (to, subject, html) => {
+  const msg = {
+    to,
+    from: process.env.SENDGRID_FROM_EMAIL,
+    subject,
+    html
+  };
+  
+  await sgMail.send(msg);
+  logger.info('Email sent', { to, subject });
+};
+
+export default { initializeSendGrid, sendEmail };
+`);
+    
+    // Update existing emailService.js
+    const servicePath = path.join(process.cwd(), 'src', 'services', 'emailService.js');
+    fs.writeFileSync(servicePath, `import { sendEmail as sendEmailSG } from '../config/sendgrid.js';
+import { logger } from '../utils/logger.js';
+
+export const sendWelcomeEmail = async (email, name) => {
+  await sendEmailSG(email, 'Welcome!', \`<h1>Welcome \${name}!</h1>\`);
+  logger.info('Welcome email sent', { email });
+};
+
+export const sendPasswordResetEmail = async (email, resetToken) => {
+  const resetLink = \`\${process.env.FRONTEND_URL}/reset-password?token=\${resetToken}\`;
+  await sendEmailSG(email, 'Reset Password', \`<a href="\${resetLink}">Reset Password</a>\`);
+  logger.info('Password reset email sent', { email });
+};
+
+export default { sendWelcomeEmail, sendPasswordResetEmail };
+`);
+    
+    console.log('✅ Created src/config/sendgrid.js');
+    console.log('✅ Updated src/services/emailService.js');
+    updateEnvExample(['SENDGRID_API_KEY', 'SENDGRID_FROM_EMAIL']);
+  },
+  
+  s3: () => {
+    console.log('☁️  Setting up AWS S3...\n');
+    
+    const configPath = path.join(process.cwd(), 'src', 'config', 's3.js');
+    fs.writeFileSync(configPath, `import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { logger } from '../utils/logger.js';
+
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
+
+export const uploadFile = async (key, body, contentType) => {
+  const command = new PutObjectCommand({
+    Bucket: process.env.AWS_S3_BUCKET,
+    Key: key,
+    Body: body,
+    ContentType: contentType
+  });
+  
+  await s3Client.send(command);
+  logger.info('File uploaded to S3', { key });
+  return \`https://\${process.env.AWS_S3_BUCKET}.s3.\${process.env.AWS_REGION}.amazonaws.com/\${key}\`;
+};
+
+export const getPresignedUrl = async (key, expiresIn = 3600) => {
+  const command = new GetObjectCommand({
+    Bucket: process.env.AWS_S3_BUCKET,
+    Key: key
+  });
+  
+  return await getSignedUrl(s3Client, command, { expiresIn });
+};
+
+export default { uploadFile, getPresignedUrl };
+`);
+    
+    console.log('✅ Created src/config/s3.js');
+    updateEnvExample(['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET']);
+  }
+};
 
 const main = async () => {
   console.log('\n🔌 Integration Installer\n');
-  console.log('Add Firebase, WebSocket, Redis, and more to your API!\n');
 
   const { integrations } = await inquirer.prompt([
     {
@@ -528,40 +335,38 @@ const main = async () => {
       message: 'Select integrations to install:',
       choices: Object.entries(INTEGRATIONS).map(([key, value]) => ({
         name: `${value.name} - ${value.description}`,
-        value: key
-      }))
+        value: key,
+        checked: false
+      })),
+      validate: (answer) => {
+        if (answer.length < 1) {
+          return 'You must choose at least one integration.';
+        }
+        return true;
+      }
     }
   ]);
-
-  if (integrations.length === 0) {
-    console.log('\n⚠️  No integrations selected. Exiting.\n');
-    return;
-  }
 
   console.log('\n🚀 Installing integrations...\n');
 
   for (const integration of integrations) {
     const config = INTEGRATIONS[integration];
     
-    console.log(`\n${'='.repeat(50)}`);
-    console.log(`Installing ${config.name}...`);
+    console.log(`${'='.repeat(50)}`);
+    console.log(`${config.name}`);
     console.log('='.repeat(50));
 
-    // Install packages
     installPackages(config.packages);
-
-    // Run integration-specific setup
-    if (integration === 'firebase') installFirebase();
-    else if (integration === 'websocket') installWebSocket();
-    else if (integration === 'redis') installRedis();
-    // Add more integrations here
+    INSTALLERS[integration]();
+    
+    console.log(`\n✅ ${config.name} installed!\n`);
   }
 
-  console.log('\n✅ All integrations installed successfully!\n');
-  console.log('📝 Don\'t forget to:');
-  console.log('1. Add required environment variables to .env');
-  console.log('2. Initialize integrations in src/server.js');
-  console.log('3. Restart your server\n');
+  console.log('✅ All integrations installed successfully!\n');
+  console.log('📝 Next steps:');
+  console.log('1. Add environment variables to .env');
+  console.log('2. Initialize in src/server.js');
+  console.log('3. Restart server\n');
 };
 
 main().catch(console.error);

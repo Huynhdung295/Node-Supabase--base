@@ -7,6 +7,7 @@ Auto-generate boilerplate code để tiết kiệm thời gian!
 Generate full CRUD controller với tất cả best practices.
 
 ### Usage
+
 ```bash
 npm run generate:controller <name>
 
@@ -15,6 +16,7 @@ npm run generate:controller post
 ```
 
 ### What It Creates
+
 - `src/controllers/postController.js` với:
   - ✅ getAll (with pagination)
   - ✅ getById
@@ -27,6 +29,7 @@ npm run generate:controller post
   - ✅ Logger integration
 
 ### Example Output
+
 ```javascript
 // src/controllers/postController.js
 export const getAllPosts = async (req, res, next) => {
@@ -45,6 +48,7 @@ export const getPostById = async (req, res, next) => {
 Generate routes với authentication, authorization, validation.
 
 ### Usage
+
 ```bash
 npm run generate:route <name>
 
@@ -53,6 +57,7 @@ npm run generate:route post
 ```
 
 ### What It Creates
+
 - `src/routes/postRoutes.js` với:
   - ✅ All CRUD endpoints
   - ✅ Authentication middleware
@@ -61,6 +66,7 @@ npm run generate:route post
   - ✅ Proper HTTP methods
 
 ### Example Output
+
 ```javascript
 // src/routes/postRoutes.js
 router.get('/', authenticate, getAllPosts);
@@ -73,11 +79,13 @@ router.delete('/:id', authenticate, authorize('admin'), deletePost);
 ## 🚀 Complete Workflow
 
 ### Step 1: Create Migration
+
 ```bash
 npm run migration:new add_posts_table
 ```
 
 Edit `supabase/migrations/xxx_add_posts_table.sql`:
+
 ```sql
 CREATE TABLE posts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -89,22 +97,27 @@ CREATE TABLE posts (
 ```
 
 ### Step 2: Apply Migration
+
 ```bash
 npm run migration:up
 ```
 
 ### Step 3: Generate Controller
+
 ```bash
 npm run generate:controller post
 ```
 
 ### Step 4: Generate Route
+
 ```bash
 npm run generate:route post
 ```
 
 ### Step 5: Add Validation (Optional)
+
 Edit `src/utils/validation.js`:
+
 ```javascript
 export const schemas = {
   // ... existing schemas
@@ -120,7 +133,9 @@ export const schemas = {
 ```
 
 ### Step 6: Register Route
+
 Edit `src/routes/index.js`:
+
 ```javascript
 import postRoutes from './postRoutes.js';
 
@@ -128,11 +143,13 @@ router.use('/posts', postRoutes);
 ```
 
 ### Step 7: Test
+
 Open http://localhost:3000/api-docs and test your new endpoints!
 
 ## ⏱️ Time Savings
 
 ### Without Generators (Old Way)
+
 - Create controller: 20-30 minutes
 - Create routes: 10-15 minutes
 - Add Swagger docs: 10-15 minutes
@@ -141,6 +158,7 @@ Open http://localhost:3000/api-docs and test your new endpoints!
 - **Total: 50-80 minutes**
 
 ### With Generators (New Way)
+
 - Generate controller: 5 seconds
 - Generate routes: 5 seconds
 - Register route: 10 seconds
@@ -151,6 +169,7 @@ Open http://localhost:3000/api-docs and test your new endpoints!
 ## 🎯 Best Practices Built-In
 
 ### Controller Generator Includes:
+
 - ✅ Pagination support
 - ✅ Error handling
 - ✅ Audit logging
@@ -161,6 +180,7 @@ Open http://localhost:3000/api-docs and test your new endpoints!
 - ✅ Input validation placeholders
 
 ### Route Generator Includes:
+
 - ✅ Authentication middleware
 - ✅ Authorization checks
 - ✅ Validation placeholders
@@ -179,12 +199,16 @@ Open http://localhost:3000/api-docs and test your new endpoints!
 ## 🔧 Customization
 
 ### Modify Templates
+
 Edit generator files to customize output:
+
 - `src/generators/controllerGenerator.js`
 - `src/generators/routeGenerator.js`
 
 ### Add New Generators
+
 Create new generators for:
+
 - Services
 - Middleware
 - Tests
@@ -194,6 +218,7 @@ Create new generators for:
 ## 📚 Examples
 
 ### Generate Blog Feature
+
 ```bash
 npm run migration:new add_blog_tables
 npm run generate:controller post
@@ -203,6 +228,7 @@ npm run generate:route comment
 ```
 
 ### Generate E-commerce Feature
+
 ```bash
 npm run migration:new add_ecommerce_tables
 npm run generate:controller product
@@ -214,6 +240,7 @@ npm run generate:route cart
 ```
 
 ### Generate Social Network Feature
+
 ```bash
 npm run migration:new add_social_tables
 npm run generate:controller post
@@ -223,18 +250,3 @@ npm run generate:route post
 npm run generate:route like
 npm run generate:route follow
 ```
-
-## 🎉 Benefits
-
-- ⚡ **99.6% faster** than manual coding
-- 🎯 **Consistent code** across project
-- 🛡️ **Best practices** built-in
-- 📚 **Auto-documentation** with Swagger
-- 🔒 **Security** by default
-- 📊 **Audit logging** included
-- 🐛 **Fewer bugs** (tested templates)
-- 🚀 **Faster development** cycle
-
----
-
-**Happy generating!** 🎨✨

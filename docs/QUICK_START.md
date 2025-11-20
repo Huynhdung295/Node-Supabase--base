@@ -1,78 +1,170 @@
-# ⚡ Quick Start - 5 Phút Setup
+# ⚡ Quick Start - Mì Ăn Liền!
 
-## 🚀 Bắt Đầu Nhanh
+## 🚀 Method 1: ONE COMMAND (Recommended)
 
-### Bước 1: Install
+```bash
+node setup.js
+```
+
+**Hoặc:**
+```bash
+npm run setup
+```
+
+**Làm gì:**
+- ✅ Install dependencies
+- ✅ Generate secure keys
+- ✅ Create .env
+- ✅ Start Supabase (optional)
+- ✅ Add integrations (optional)
+- ✅ Ready to code!
+
+**Time:** 2 phút
+
+---
+
+## ⚡ Method 2: SUPER QUICK (No questions)
+
+```bash
+node quick-start.js
+```
+
+**Làm gì:**
+- ✅ Install everything
+- ✅ Generate keys
+- ✅ Start Supabase
+- ✅ Start server
+- ✅ Done!
+
+**Time:** 1 phút
+
+---
+
+## 📝 Method 3: Manual (Step by step)
+
+### 1. Install
 ```bash
 npm install
 ```
 
-### Bước 2: Generate Keys
+### 2. Generate Keys
 ```bash
 npm run keys:generate
 npm run keys:append
 ```
 
-### Bước 3: Start Supabase
+### 3. Start Supabase
 ```bash
 npm run supabase:start
+# Copy keys to .env
 ```
-**→ Copy `anon key` và `service_role key` vào `.env`**
 
-### Bước 4: Start API
+### 4. Start Server
 ```bash
 npm run dev
 ```
 
-### Bước 5: Test
-```
-✅ API: http://localhost:3000
-✅ Swagger: http://localhost:3000/api-docs
-✅ Supabase Studio: http://localhost:54323
-```
+---
 
-## 🎯 Test Accounts
+## 🎯 After Setup
 
+### Test API
 ```
-Admin:     admin@example.com / admin123
-User:      user@example.com / user123
-Affiliate: aff@example.com / aff123
+http://localhost:3000/api-docs
 ```
 
-## 🔥 Tạo Feature Mới (30 giây!)
+### Test Accounts
+```
+Admin:  admin@example.com / admin123
+User:   user@example.com / user123
+```
 
+### Create Resource
 ```bash
 npm run create
-# Chọn preset: 🎯 Ultimate (All features)
-# Nhập tên: post
-# Done! Auto-generated + Auto-registered!
-
-# Hoặc dùng alias:
+# or
 npm run g
-npm run generate
 ```
 
-## 📚 Đọc Tiếp
+### Add Integration
+```bash
+npm run add
+```
 
-- **docs/CLI.md** - Hướng dẫn CLI
-- **docs/TESTING.md** - Hướng dẫn testing
-- **docs/DEPLOY.md** - Hướng dẫn deploy
-- **docs/API.md** - API examples
+---
 
-## 🆘 Gặp Vấn Đề?
+## 🔥 Quick Commands
 
 ```bash
-# Supabase không start
+# Development
+npm run dev              # Start server
+npm run dev:memory       # With memory monitoring
+
+# Supabase
+npm run supabase:start   # Start Supabase
+npm run supabase:studio  # Open UI
+npm run supabase:stop    # Stop Supabase
+
+# Database
+npm run migration:new <name>  # Create migration
+npm run migration:up          # Apply migrations
+npm run seed                  # Seed data
+
+# Generate
+npm run create           # Generate resource
+npm run g                # Short alias
+npm run add              # Add integration
+
+# Testing
+npm test                 # Run tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # Coverage
+
+# Maintenance
+npm run logs:clean       # Clean logs
+npm run audit:clean      # Clean audit logs
+```
+
+---
+
+## 🆘 Troubleshooting
+
+### Port already in use
+```bash
+# Change PORT in .env
+PORT=3001
+```
+
+### Supabase won't start
+```bash
 npm run supabase:stop
 npm run supabase:start
+```
 
-# Port đã dùng
-# Đổi PORT trong .env
-
-# Migration lỗi
+### Reset everything
+```bash
 npm run supabase:reset
 ```
 
 ---
 
-**That's it! Bắt đầu code thôi!** 🚀
+## 📚 Next Steps
+
+1. **Create your first resource:**
+   ```bash
+   npm run create
+   ```
+
+2. **Add integrations:**
+   ```bash
+   npm run add
+   ```
+
+3. **Read docs:**
+   - [CLI Guide](CLI.md)
+   - [Integrations](INTEGRATIONS.md)
+   - [API Examples](API.md)
+
+---
+
+**That's it! Start coding!** 🚀
