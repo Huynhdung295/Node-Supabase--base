@@ -26,6 +26,8 @@ import { ValidationError, UnauthorizedError } from '../middleware/errorHandler.j
  *                 minLength: 6
  *               full_name:
  *                 type: string
+ *               ref_code:
+ *                 type: string
  *     responses:
  *       201:
  *         description: User created successfully
@@ -34,44 +36,82 @@ import { ValidationError, UnauthorizedError } from '../middleware/errorHandler.j
  */
 export const register = async (req, res, next) => {
   try {
-    const { email, password, full_name } = req.body;
+    const { email, password, full_name, ref_code } = req.body;
 
     if (!email || !password || !full_name) {
       throw new ValidationError('Email, password, and full_name are required');
     }
 
+    // Check if referrer exists if ref_code provided
+    let referrer_id = null;
+    if (ref_code) {
+      const { data: referrer } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('ref_code', ref_code.toUpperCase())
+        .single();
+      
+      if (referrer) {
+        referrer_id = referrer.id;
+      }
+    }
+
+    // Get default tier (Bronze)
+    const { data: defaultTier } = await supabaseAdmin
+      .from('tiers')
+      .select('id')
+      .eq('slug', 'bronze')
+      .single();
+
     // Tạo user trong Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true // Auto confirm cho development
+      email_confirm: false, // Require email verification
+      user_metadata: {
+        full_name
+      }
     });
 
     if (authError) {
       throw new ValidationError(authError.message);
     }
 
-    // Tạo profile
+    // Generate unique ref code
+    const { data: newRefCode } = await supabaseAdmin.rpc('generate_ref_code');
+
+    // Profile will be created automatically by trigger
+    // But we need to update it with additional info
+    await new Promise(resolve => setTimeout(resolve, 100)); // Wait for trigger
+
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        id: authData.user.id,
-        email,
+      .update({
         full_name,
-        role: 'user',
-        tier_vip: 'silver'
+        ref_code: newRefCode,
+        referrer_id,
+        current_tier_id: defaultTier?.id || 1,
+        is_email_verified: false
       })
-      .select()
+      .eq('id', authData.user.id)
+      .select(`
+        *,
+        tiers (
+          id,
+          name,
+          slug
+        )
+      `)
       .single();
 
     if (profileError) {
-      // Rollback: xóa user nếu tạo profile thất bại
+      // Rollback: xóa user nếu update profile thất bại
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
       throw new ValidationError('Failed to create user profile');
     }
 
     res.status(201).json({
-      message: 'User registered successfully',
+      message: 'User registered successfully. Please check your email for verification.',
       user: {
         id: authData.user.id,
         email: authData.user.email,
@@ -129,18 +169,23 @@ export const login = async (req, res, next) => {
     // Lấy profile
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('*')
+      .select(`
+        *,
+        tiers (
+          id,
+          name,
+          slug,
+          color_hex
+        )
+      `)
       .eq('id', data.user.id)
       .single();
 
-    // Log session
+    // Update last sign in
     await supabaseAdmin
-      .from('user_sessions')
-      .insert({
-        user_id: data.user.id,
-        ip_address: req.ip,
-        user_agent: req.headers['user-agent']
-      });
+      .from('profiles')
+      .update({ last_sign_in_at: new Date().toISOString() })
+      .eq('id', data.user.id);
 
     res.json({
       message: 'Login successful',

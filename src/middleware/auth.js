@@ -22,7 +22,14 @@ export const authenticate = async (req, res, next) => {
     // Lấy profile từ database
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('*')
+      .select(`
+        *,
+        tiers (
+          id,
+          name,
+          slug
+        )
+      `)
       .eq('id', user.id)
       .single();
 
@@ -30,9 +37,15 @@ export const authenticate = async (req, res, next) => {
       throw new UnauthorizedError('User profile not found');
     }
 
-    if (!profile.is_active) {
+    if (profile.status !== 'active') {
       throw new ForbiddenError('Account is inactive');
     }
+
+    // Update last sign in
+    await supabaseAdmin
+      .from('profiles')
+      .update({ last_sign_in_at: new Date().toISOString() })
+      .eq('id', user.id);
 
     // Attach user info vào request
     req.user = {
@@ -67,22 +80,18 @@ export const authorize = (...allowedRoles) => {
   };
 };
 
-// Middleware để check tier VIP
-export const requireTier = (...allowedTiers) => {
+// Middleware để check tier level
+export const requireTier = (...allowedTierSlugs) => {
   return (req, res, next) => {
     try {
       if (!req.user) {
         throw new UnauthorizedError('Authentication required');
       }
 
-      const userTier = req.user.profile.tier_vip;
-      const tierHierarchy = { silver: 1, gold: 2, diamond: 3 };
-
-      const userTierLevel = tierHierarchy[userTier];
-      const requiredTierLevel = Math.min(...allowedTiers.map(t => tierHierarchy[t]));
-
-      if (userTierLevel < requiredTierLevel) {
-        throw new ForbiddenError(`Access denied. Required tier: ${allowedTiers.join(' or ')}`);
+      const userTier = req.user.profile.tiers?.slug;
+      
+      if (!userTier || !allowedTierSlugs.includes(userTier)) {
+        throw new ForbiddenError(`Access denied. Required tier: ${allowedTierSlugs.join(' or ')}`);
       }
 
       next();

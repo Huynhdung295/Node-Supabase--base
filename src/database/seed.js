@@ -4,10 +4,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const seedUsers = async () => {
-  console.log('🌱 Seeding database...');
-
+  console.log('************* STARTING SEEDING *************');
   try {
-    // Tạo admin user
     const { data: adminAuth, error: adminAuthError } = await supabaseAdmin.auth.admin.createUser({
       email: 'admin@example.com',
       password: 'admin123',
@@ -27,7 +25,6 @@ const seedUsers = async () => {
       console.log('✅ Admin user created');
     }
 
-    // Tạo regular user
     const { data: userAuth, error: userAuthError } = await supabaseAdmin.auth.admin.createUser({
       email: 'user@example.com',
       password: 'user123',
@@ -46,8 +43,6 @@ const seedUsers = async () => {
       });
       console.log('✅ Regular user created');
     }
-
-    // Tạo affiliate user
     const { data: affAuth, error: affAuthError } = await supabaseAdmin.auth.admin.createUser({
       email: 'aff@example.com',
       password: 'aff123',
@@ -66,15 +61,8 @@ const seedUsers = async () => {
       });
       console.log('✅ Affiliate user created');
     }
-
-    console.log('\n🎉 Seeding completed!');
-    console.log('\nTest accounts:');
-    console.log('Admin: admin@example.com / admin123');
-    console.log('User: user@example.com / user123');
-    console.log('Affiliate: aff@example.com / aff123');
-
   } catch (error) {
-    console.error('❌ Seeding failed:', error.message);
+    console.error('Seeding error:', error);
   }
 };
 
