@@ -37,8 +37,8 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(memoryMonitor);
 }
 
-// Rate limiting
-app.use(rateLimiter);
+// Rate limiting - DISABLED
+// app.use(rateLimiter);
 
 // API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

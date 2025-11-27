@@ -157,6 +157,20 @@ router.put('/exchanges/tiers', exchangeController.updateExchangeTiers);
 /**
  * @swagger
  * /api/admin/tiers:
+ *   get:
+ *     summary: Get all tiers (Admin)
+ *     tags: [Admin - Tiers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all tiers
+ */
+router.get('/tiers', tierController.getAllTiers);
+
+/**
+ * @swagger
+ * /api/admin/tiers:
  *   post:
  *     summary: Create tier (Admin)
  *     tags: [Admin - Tiers]

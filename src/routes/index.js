@@ -8,6 +8,7 @@ import claimRoutes from './claimRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import csRoutes from './csRoutes.js';
 import settingsRoutes from './settingsRoutes.js';
+import crawlerRoutes from './crawlerRoutes.js';
 
 const router = express.Router();
 
@@ -40,6 +41,9 @@ router.get('/', (req, res) => {
       
       // CS endpoints
       cs: '/cs',
+
+      // Crawler endpoints
+      crawler: '/crawler',
       
       // Legacy
       users: '/users',
@@ -63,6 +67,9 @@ router.use('/admin', adminRoutes);
 
 // CS routes (CS or admin role required)
 router.use('/cs', csRoutes);
+
+// Crawler routes (token authentication)
+router.use('/crawler', crawlerRoutes);
 
 // Legacy routes
 router.use('/users', userRoutes);

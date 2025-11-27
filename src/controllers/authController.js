@@ -63,13 +63,14 @@ export const register = async (req, res, next) => {
       .eq('slug', 'bronze')
       .single();
 
-    // Tạo user trong Supabase Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    // Tạo user trong Supabase Auth (using signUp to ensure proper password hashing)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: false, // Require email verification
-      user_metadata: {
-        full_name
+      options: {
+        data: {
+          full_name
+        }
       }
     });
 
@@ -77,17 +78,60 @@ export const register = async (req, res, next) => {
       throw new ValidationError(authError.message);
     }
 
+    if (!authData.user) {
+      throw new ValidationError('Failed to create user');
+    }
+
     // Generate unique ref code
     const { data: newRefCode } = await supabaseAdmin.rpc('generate_ref_code');
 
-    // Profile will be created automatically by trigger
-    // But we need to update it with additional info
-    await new Promise(resolve => setTimeout(resolve, 100)); // Wait for trigger
+    // Poll for profile creation (wait for trigger)
+    let profile = null;
+    let attempts = 0;
+    const maxAttempts = 10; // 2 seconds total
+    
+    while (!profile && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+        
+      if (data) {
+        profile = data;
+      }
+      attempts++;
+    }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
+    if (!profile) {
+      // If trigger failed to create profile after timeout, try to create it manually
+      // This is a fallback in case the trigger is disabled or failing silently
+      const { data: newProfile, error: createError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          email: authData.user.email,
+          full_name,
+          role: 'user'
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        // Rollback: delete user if profile creation fails
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+        throw new ValidationError('Failed to create user profile: ' + createError.message);
+      }
+      profile = newProfile;
+    }
+
+    // Update profile with additional info
+    const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from('profiles')
       .update({
-        full_name,
+        full_name, // Ensure full_name is set
         ref_code: newRefCode,
         referrer_id,
         current_tier_id: defaultTier?.id || 1,
@@ -104,10 +148,10 @@ export const register = async (req, res, next) => {
       `)
       .single();
 
-    if (profileError) {
-      // Rollback: xóa user nếu update profile thất bại
+    if (updateError) {
+      // Rollback
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      throw new ValidationError('Failed to create user profile');
+      throw new ValidationError('Failed to update user profile details');
     }
 
     res.status(201).json({
@@ -115,7 +159,7 @@ export const register = async (req, res, next) => {
       user: {
         id: authData.user.id,
         email: authData.user.email,
-        profile
+        profile: updatedProfile
       }
     });
   } catch (error) {
@@ -157,43 +201,47 @@ export const login = async (req, res, next) => {
       throw new ValidationError('Email and password are required');
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // Authenticate with Supabase Auth
+    const { data, error } = await supabaseAdmin.auth.signInWithPassword({
       email,
-      password
+      password,
     });
 
     if (error) {
-      throw new UnauthorizedError('Invalid email or password');
+      throw new ValidationError('Invalid credentials');
     }
 
-    // Lấy profile
-    const { data: profile } = await supabaseAdmin
+    // Get user profile with role
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select(`
-        *,
-        tiers (
-          id,
-          name,
-          slug,
-          color_hex
-        )
-      `)
+      .select('*, tiers(id, name, slug, color_hex)')
       .eq('id', data.user.id)
       .single();
 
-    // Update last sign in
-    await supabaseAdmin
-      .from('profiles')
-      .update({ last_sign_in_at: new Date().toISOString() })
-      .eq('id', data.user.id);
+    if (profileError) throw profileError;
+
+    // Check if user is banned
+    if (profile.status === 'banned') {
+      throw new ValidationError('Your account has been banned');
+    }
+
+    // Log login history
+    await supabaseAdmin.from('login_history').insert({
+      user_id: data.user.id,
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.headers['user-agent'] || 'Unknown',
+      location: req.headers['cf-ipcountry'] || 'Unknown'
+    });
 
     res.json({
       message: 'Login successful',
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
+      token: data.session.access_token,
       user: {
-        ...data.user,
-        profile
+        id: data.user.id,
+        email: data.user.email,
+        role: profile.role,
+        full_name: profile.full_name,
+        tier: profile.tiers
       }
     });
   } catch (error) {
@@ -289,6 +337,57 @@ export const refreshToken = async (req, res, next) => {
     res.json({
       access_token: data.session.access_token,
       refresh_token: data.session.refresh_token
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @swagger
+ * /auth/recover:
+ *   post:
+ *     summary: Gửi email reset password
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Password reset email sent
+ *       400:
+ *         description: Validation error
+ */
+export const recoverPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      throw new ValidationError('Email is required');
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+    if (error) {
+      // Don't reveal if user exists or not for security, unless it's a validation error
+      if (error.status === 429) {
+        throw new ValidationError('Too many requests. Please try again later.');
+      }
+      // Log the real error
+      console.error('Recover password error:', error);
+    }
+
+    res.json({
+      message: 'If an account exists with this email, a password reset link has been sent.'
     });
   } catch (error) {
     next(error);

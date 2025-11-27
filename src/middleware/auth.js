@@ -69,6 +69,11 @@ export const authorize = (...allowedRoles) => {
 
       const userRole = req.user.profile.role;
 
+      // System role has access to everything
+      if (userRole === 'system') {
+        return next();
+      }
+
       if (!allowedRoles.includes(userRole)) {
         throw new ForbiddenError(`Access denied. Required roles: ${allowedRoles.join(', ')}`);
       }

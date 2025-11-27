@@ -4,7 +4,8 @@ import {
   login, 
   logout, 
   getCurrentUser, 
-  refreshToken 
+  refreshToken,
+  recoverPassword
 } from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
 import { strictRateLimiter } from '../middleware/rateLimiter.js';
@@ -18,10 +19,11 @@ const router = express.Router();
  *   description: API endpoints cho authentication
  */
 
-router.post('/register', strictRateLimiter, register);
-router.post('/login', strictRateLimiter, login);
-router.post('/logout', authenticate, logout);
-router.get('/me', authenticate, getCurrentUser);
+// Routes
+router.post('/register', register); // strictRateLimiter removed
+router.post('/login', login); // strictRateLimiter removed
+router.post('/logout', logout);
 router.post('/refresh', refreshToken);
+router.post('/recover', recoverPassword); // strictRateLimiter removed
 
 export default router;

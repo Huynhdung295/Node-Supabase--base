@@ -169,6 +169,83 @@ export const profileController = {
     }
   },
 
+  // PUT /api/me/connections/:id - User: Update exchange connection
+  async updateConnection(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      const { exchange_uid, exchange_email } = req.body;
+
+      // Check if connection exists and belongs to user
+      const { data: existingConnection } = await supabaseAdmin
+        .from('user_exchange_links')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
+
+      if (!existingConnection) {
+        throw new NotFoundError('Connection not found');
+      }
+
+      const updateData = {};
+      if (exchange_uid) updateData.exchange_uid = exchange_uid;
+      if (exchange_email) updateData.exchange_email = exchange_email;
+
+      const { data: connection, error } = await supabaseAdmin
+        .from('user_exchange_links')
+        .update(updateData)
+        .eq('id', id)
+        .select(`
+          *,
+          exchanges (
+            id,
+            code,
+            name,
+            logo_url
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      return successResponse(res, connection, 'Connection updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // DELETE /api/me/connections/:id - User: Remove exchange connection
+  async deleteConnection(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+
+      // Check if connection exists and belongs to user
+      const { data: existingConnection } = await supabaseAdmin
+        .from('user_exchange_links')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
+
+      if (!existingConnection) {
+        throw new NotFoundError('Connection not found');
+      }
+
+      const { error } = await supabaseAdmin
+        .from('user_exchange_links')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      return successResponse(res, null, 'Connection removed successfully');
+    } catch (error) {
+      next(error);
+    }
+  },
+
   // GET /api/me/balance - User: Get available balance
   async getMyBalance(req, res, next) {
     try {
@@ -229,6 +306,26 @@ export const profileController = {
       if (error) throw error;
 
       return successResponse(res, transactions, 'Transactions retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // GET /api/me/login-history - User: Get own login history
+  async getLoginHistory(req, res, next) {
+    try {
+      const userId = req.user.id;
+      
+      const { data: history, error } = await supabaseAdmin
+        .from('login_history')
+        .select('*')
+        .eq('user_id', userId)
+        .order('login_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      return successResponse(res, history, 'Login history retrieved successfully');
     } catch (error) {
       next(error);
     }
