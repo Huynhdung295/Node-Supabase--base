@@ -41,6 +41,17 @@ export const csController = {
             name,
             slug,
             color_hex
+          ),
+          user_exchange_links (
+            id,
+            exchange_id,
+            exchange_uid,
+            status,
+            total_volume,
+            exchanges (
+              code,
+              name
+            )
           )
         `)
         .eq('role', 'user')
@@ -265,6 +276,58 @@ export const csController = {
       }
 
       return successResponse(res, connection, `Connection ${status} successfully`);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // POST /api/cs/users/links - CS: Create user connection
+  async createConnection(req, res, next) {
+    try {
+      const { user_id, exchange_id, exchange_uid, status = 'verified' } = req.body;
+
+      if (!user_id || !exchange_id || !exchange_uid) {
+        throw new BadRequestError('user_id, exchange_id, and exchange_uid are required');
+      }
+
+      // Check if connection already exists
+      const { data: existingLink } = await supabaseAdmin
+        .from('user_exchange_links')
+        .select('id')
+        .eq('user_id', user_id)
+        .eq('exchange_id', exchange_id)
+        .single();
+
+      if (existingLink) {
+        throw new BadRequestError('Connection already exists for this user and exchange');
+      }
+
+      const { data: link, error } = await supabaseAdmin
+        .from('user_exchange_links')
+        .insert({
+          user_id,
+          exchange_id,
+          exchange_uid,
+          status, // Default to verified if not provided
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select(`
+          *,
+          profiles (
+            email,
+            full_name
+          ),
+          exchanges (
+            code,
+            name
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      return successResponse(res, link, 'Connection created successfully');
     } catch (error) {
       next(error);
     }

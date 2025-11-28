@@ -34,6 +34,14 @@ export const adminController = {
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
+      // Role hierarchy filtering
+      const requesterRole = req.user.profile.role;
+      if (requesterRole === 'admin') {
+        query = query.in('role', ['user', 'cs']);
+      } else if (requesterRole === 'cs') {
+        query = query.eq('role', 'user');
+      }
+
       // Apply filters
       if (search) {
         query = query.or(`email.ilike.%${search}%,full_name.ilike.%${search}%`);
@@ -120,6 +128,37 @@ export const adminController = {
         throw new BadRequestError('Role or status is required');
       }
 
+      // Role hierarchy check
+      const roleHierarchy = { 'system': 4, 'admin': 3, 'cs': 2, 'user': 1 };
+      const requesterRole = req.user.profile.role;
+      const requesterLevel = roleHierarchy[requesterRole] || 0;
+
+      // Get target user current role
+      const { data: targetUser } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', id)
+        .single();
+
+      if (!targetUser) {
+        throw new NotFoundError('User not found');
+      }
+
+      const targetLevel = roleHierarchy[targetUser.role] || 0;
+
+      // Prevent updating peer or higher (unless system)
+      if (requesterRole !== 'system' && targetLevel >= requesterLevel) {
+        throw new ForbiddenError('Cannot update user with equal or higher role');
+      }
+
+      // Prevent setting role to peer or higher
+      if (role) {
+        const newRoleLevel = roleHierarchy[role] || 0;
+        if (requesterRole !== 'system' && newRoleLevel >= requesterLevel) {
+          throw new ForbiddenError('Cannot set role equal to or higher than your own');
+        }
+      }
+
       const { data: user, error } = await supabaseAdmin
         .from('profiles')
         .update({
@@ -131,10 +170,6 @@ export const adminController = {
         .single();
 
       if (error) throw error;
-
-      if (!user) {
-        throw new NotFoundError('User not found');
-      }
 
       return successResponse(res, user, 'User updated successfully');
     } catch (error) {
@@ -179,6 +214,130 @@ export const adminController = {
       }
 
       return successResponse(res, link, 'Custom commission rate updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // PATCH /api/admin/users/links/:link_id/status - Admin: Update connection status
+  async updateConnectionStatus(req, res, next) {
+    try {
+      const { link_id } = req.params;
+      const { status } = req.body;
+
+      // Valid statuses based on DB enum: pending, verified, rejected
+      if (!status || !['pending', 'verified', 'rejected'].includes(status)) {
+        throw new BadRequestError('Valid status (pending/verified/rejected) is required');
+      }
+
+      const { data: link, error } = await supabaseAdmin
+        .from('user_exchange_links')
+        .update({
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', link_id)
+        .select(`
+          *,
+          profiles (
+            email,
+            full_name
+          ),
+          exchanges (
+            code,
+            name
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      if (!link) {
+        throw new NotFoundError('Exchange link not found');
+      }
+
+      return successResponse(res, link, 'Connection status updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // POST /api/admin/users/links - Admin: Create user connection
+  async createConnection(req, res, next) {
+    try {
+      const { user_id, exchange_id, exchange_uid, status = 'verified' } = req.body;
+
+      if (!user_id || !exchange_id || !exchange_uid) {
+        throw new BadRequestError('user_id, exchange_id, and exchange_uid are required');
+      }
+
+      // Check if connection already exists
+      const { data: existingLink } = await supabaseAdmin
+        .from('user_exchange_links')
+        .select('id')
+        .eq('user_id', user_id)
+        .eq('exchange_id', exchange_id)
+        .single();
+
+      if (existingLink) {
+        throw new BadRequestError('Connection already exists for this user and exchange');
+      }
+
+      const { data: link, error } = await supabaseAdmin
+        .from('user_exchange_links')
+        .insert({
+          user_id,
+          exchange_id,
+          exchange_uid,
+          status, // Default to verified if not provided
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select(`
+          *,
+          profiles (
+            email,
+            full_name
+          ),
+          exchanges (
+            code,
+            name
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      return successResponse(res, link, 'Connection created successfully');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // DELETE /api/admin/users/links/:link_id - Admin: Remove user connection
+  async deleteConnection(req, res, next) {
+    try {
+      const { link_id } = req.params;
+
+      // Check if connection exists
+      const { data: existingLink } = await supabaseAdmin
+        .from('user_exchange_links')
+        .select('id')
+        .eq('id', link_id)
+        .single();
+
+      if (!existingLink) {
+        throw new NotFoundError('Connection not found');
+      }
+
+      const { error } = await supabaseAdmin
+        .from('user_exchange_links')
+        .delete()
+        .eq('id', link_id);
+
+      if (error) throw error;
+
+      return successResponse(res, null, 'Connection removed successfully');
     } catch (error) {
       next(error);
     }

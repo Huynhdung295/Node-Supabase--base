@@ -220,7 +220,7 @@ export const claimController = {
     }
   },
 
-  // GET /api/admin/claims - Admin: Get all claims with stats
+  // GET /api/admin/claims - Admin: Get all claims
   async getAllClaims(req, res, next) {
     try {
       const { page = 1, limit = 20, status, user_id } = req.query;
@@ -252,6 +252,51 @@ export const claimController = {
       if (error) throw error;
 
       return successResponse(res, claims, 'Claims retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // PUT /api/admin/claims/:id - Admin: Update claim status
+  async updateClaimStatus(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { status, cs_note, proof_img_url } = req.body;
+
+      if (!['approved', 'rejected', 'pending'].includes(status)) {
+        throw new BadRequestError('Status must be approved, rejected, or pending');
+      }
+
+      const updateData = {
+        status,
+        cs_note,
+        updated_at: new Date().toISOString()
+      };
+
+      if (status === 'approved' && proof_img_url) {
+        updateData.proof_img_url = proof_img_url;
+      }
+
+      const { data: claim, error } = await supabaseAdmin
+        .from('claim_requests')
+        .update(updateData)
+        .eq('id', id)
+        .select(`
+          *,
+          profiles (
+            email,
+            full_name
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      if (!claim) {
+        throw new NotFoundError('Claim not found');
+      }
+
+      return successResponse(res, claim, `Claim ${status} successfully`);
     } catch (error) {
       next(error);
     }

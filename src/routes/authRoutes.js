@@ -20,10 +20,11 @@ const router = express.Router();
  */
 
 // Routes
-router.post('/register', register); // strictRateLimiter removed
-router.post('/login', login); // strictRateLimiter removed
-router.post('/logout', logout);
-router.post('/refresh', refreshToken);
-router.post('/recover', recoverPassword); // strictRateLimiter removed
+router.post('/register', register);
+router.post('/login', login);
+router.post('/refresh-token', refreshToken);
+router.post('/logout', authenticate, logout);
+router.post('/recover', recoverPassword);
+router.get('/me', authenticate, getCurrentUser);
 
 export default router;

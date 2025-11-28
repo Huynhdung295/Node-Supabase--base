@@ -12,7 +12,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Client cho public access (với RLS)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true
+  }
+});
 
 // Admin client (bypass RLS) - chỉ dùng cho admin operations
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {

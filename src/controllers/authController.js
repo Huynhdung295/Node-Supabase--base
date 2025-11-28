@@ -202,7 +202,7 @@ export const login = async (req, res, next) => {
     }
 
     // Authenticate with Supabase Auth
-    const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });

@@ -19,6 +19,7 @@ router.put('/users/:id', csController.updateUser);
 router.post('/users/:id/reset-password', csController.resetUserPassword);
 
 // Connection Management
+router.post('/users/links', csController.createConnection);
 router.get('/connections', csController.getPendingConnections);
 router.put('/connections/:id', csController.processConnection);
 
