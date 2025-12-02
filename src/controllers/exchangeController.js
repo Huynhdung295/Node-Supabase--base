@@ -3,7 +3,16 @@ import { successResponse, errorResponse } from '../utils/response.js';
 import { BadRequestError, NotFoundError } from '../middleware/errorHandler.js';
 
 export const exchangeController = {
-  // GET /api/exchanges - Get active exchanges (public)
+  /**
+   * @swagger
+   * /api/exchanges:
+   *   get:
+   *     summary: Get active exchanges (Public)
+   *     tags: [Exchanges - Public]
+   *     responses:
+   *       200:
+   *         description: Active exchanges retrieved successfully
+   */
   async getActiveExchanges(req, res, next) {
     try {
       const { data: exchanges, error } = await supabaseAdmin
@@ -33,7 +42,18 @@ export const exchangeController = {
     }
   },
 
-  // GET /api/admin/exchanges - Admin: Get all exchanges
+  /**
+   * @swagger
+   * /api/admin/exchanges:
+   *   get:
+   *     summary: Get all exchanges (Admin)
+   *     tags: [Admin - Exchanges]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: All exchanges with stats retrieved
+   */
   async getAllExchanges(req, res, next) {
     try {
       const { data: exchanges, error } = await supabaseAdmin
@@ -73,7 +93,39 @@ export const exchangeController = {
     }
   },
 
-  // POST /api/admin/exchanges - Admin: Create exchange
+  /**
+   * @swagger
+   * /api/admin/exchanges:
+   *   post:
+   *     summary: Create new exchange (Admin)
+   *     tags: [Admin - Exchanges]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - code
+   *               - name
+   *             properties:
+   *               code:
+   *                 type: string
+   *               name:
+   *                 type: string
+   *               status:
+   *                 type: string
+   *                 enum: [active, inactive]
+   *               logo_url:
+   *                 type: string
+   *               config_json:
+   *                 type: object
+   *     responses:
+   *       201:
+   *         description: Exchange created successfully
+   */
   async createExchange(req, res, next) {
     try {
       const { code, name, status, logo_url, config_json } = req.body;
@@ -107,7 +159,40 @@ export const exchangeController = {
     }
   },
 
-  // PUT /api/admin/exchanges/:id - Admin: Update exchange
+  /**
+   * @swagger
+   * /api/admin/exchanges/{id}:
+   *   put:
+   *     summary: Update exchange (Admin)
+   *     tags: [Admin - Exchanges]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               code:
+   *                 type: string
+   *               name:
+   *                 type: string
+   *               status:
+   *                 type: string
+   *               logo_url:
+   *                 type: string
+   *               config_json:
+   *                 type: object
+   *     responses:
+   *       200:
+   *         description: Exchange updated successfully
+   */
   async updateExchange(req, res, next) {
     try {
       const { id } = req.params;
@@ -143,7 +228,24 @@ export const exchangeController = {
     }
   },
 
-  // DELETE /api/admin/exchanges/:id - Admin: Delete exchange
+  /**
+   * @swagger
+   * /api/admin/exchanges/{id}:
+   *   delete:
+   *     summary: Delete exchange (Admin)
+   *     tags: [Admin - Exchanges]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Exchange deleted successfully
+   */
   async deleteExchange(req, res, next) {
     try {
       const { id } = req.params;
@@ -161,7 +263,25 @@ export const exchangeController = {
     }
   },
 
-  // GET /api/admin/exchanges/:id/tiers - Admin: Get tier configs for exchange
+  /**
+   * @swagger
+   * /api/admin/exchanges/{id}/tiers:
+   *   get:
+   *     summary: Get tier configs for exchange (Admin)
+   *     tags: [Admin - Exchanges]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Exchange ID
+   *     responses:
+   *       200:
+   *         description: Exchange tier configs retrieved
+   */
   async getExchangeTiers(req, res, next) {
     try {
       const { id } = req.params;
@@ -188,7 +308,43 @@ export const exchangeController = {
     }
   },
 
-  // PUT /api/admin/exchanges/tiers - Admin: Update tier configs
+  /**
+   * @swagger
+   * /api/admin/exchanges/tiers:
+   *   put:
+   *     summary: Update exchange tier configs (Admin)
+   *     tags: [Admin - Exchanges]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - exchange_id
+   *               - tier_configs
+   *             properties:
+   *               exchange_id:
+   *                 type: string
+   *               tier_configs:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     tier_id:
+   *                       type: string
+   *                     required_points:
+   *                       type: number
+   *                     default_commission_rate:
+   *                       type: number
+   *                     is_active:
+   *                       type: boolean
+   *     responses:
+   *       200:
+   *         description: Tier configs updated successfully
+   */
   async updateExchangeTiers(req, res, next) {
     try {
       const { exchange_id, tier_configs } = req.body;

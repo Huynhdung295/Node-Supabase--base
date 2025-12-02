@@ -3,7 +3,16 @@ import { successResponse, errorResponse } from '../utils/response.js';
 import { BadRequestError, NotFoundError } from '../middleware/errorHandler.js';
 
 export const tierController = {
-  // GET /api/tiers - Public endpoint to get all tiers
+  /**
+   * @swagger
+   * /api/tiers:
+   *   get:
+   *     summary: Get all tiers (Public)
+   *     tags: [Tiers - Public]
+   *     responses:
+   *       200:
+   *         description: Tiers retrieved successfully
+   */
   async getAllTiers(req, res, next) {
     try {
       const { data: tiers, error } = await supabaseAdmin
@@ -19,7 +28,36 @@ export const tierController = {
     }
   },
 
-  // POST /api/admin/tiers - Admin only
+  /**
+   * @swagger
+   * /api/admin/tiers:
+   *   post:
+   *     summary: Create new tier (Admin)
+   *     tags: [Admin - Tiers]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - name
+   *               - slug
+   *             properties:
+   *               name:
+   *                 type: string
+   *               slug:
+   *                 type: string
+   *               priority:
+   *                 type: integer
+   *               color_hex:
+   *                 type: string
+   *     responses:
+   *       201:
+   *         description: Tier created successfully
+   */
   async createTier(req, res, next) {
     try {
       const { name, slug, priority, color_hex } = req.body;
@@ -52,7 +90,38 @@ export const tierController = {
     }
   },
 
-  // PUT /api/admin/tiers/:id - Admin only
+  /**
+   * @swagger
+   * /api/admin/tiers/{id}:
+   *   put:
+   *     summary: Update tier (Admin)
+   *     tags: [Admin - Tiers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               name:
+   *                 type: string
+   *               slug:
+   *                 type: string
+   *               priority:
+   *                 type: integer
+   *               color_hex:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Tier updated successfully
+   */
   async updateTier(req, res, next) {
     try {
       const { id } = req.params;
@@ -87,7 +156,24 @@ export const tierController = {
     }
   },
 
-  // DELETE /api/admin/tiers/:id - Admin only
+  /**
+   * @swagger
+   * /api/admin/tiers/{id}:
+   *   delete:
+   *     summary: Delete tier (Admin)
+   *     tags: [Admin - Tiers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Tier deleted successfully
+   */
   async deleteTier(req, res, next) {
     try {
       const { id } = req.params;

@@ -1,6 +1,8 @@
 import express from 'express';
-import { csController } from '../controllers/csController.js';
-import { claimController } from '../controllers/claimController.js';
+import * as CSUser from '../controllers/cs/user.controller.js';
+import * as CSConnection from '../controllers/cs/connection.controller.js';
+import * as CSStats from '../controllers/cs/stats.controller.js';
+import * as ClaimAdmin from '../controllers/claim/admin.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -10,21 +12,24 @@ router.use(authenticate);
 router.use(authorize('cs', 'admin'));
 
 // Dashboard
-router.get('/dashboard', csController.getDashboardStats);
+router.get('/dashboard', CSStats.getDashboardStats);
 
 // User Management
-router.get('/users', csController.getUsers);
-router.get('/users/:id', csController.getUserInfo);
-router.put('/users/:id', csController.updateUser);
-router.post('/users/:id/reset-password', csController.resetUserPassword);
+router.get('/users', CSUser.getUsers);
+router.get('/users/:id', CSUser.getUserInfo);
+router.put('/users/:id', CSUser.updateUser);
+router.post('/users/:id/reset-password', CSUser.resetUserPassword);
 
 // Connection Management
-router.post('/users/links', csController.createConnection);
-router.get('/connections', csController.getPendingConnections);
-router.put('/connections/:id', csController.processConnection);
+router.post('/users/links', CSConnection.createConnection);
+router.get('/connections', CSConnection.getPendingConnections);
+router.put('/connections/:id', CSConnection.processConnection);
 
 // Claim Management
-router.get('/claims', claimController.getPendingClaims);
-router.put('/claims/:id', claimController.processClaim);
+router.get('/claims', ClaimAdmin.getPendingClaims);
+router.post('/claims/:id/send-code', ClaimAdmin.sendCSCode);
+router.post('/claims/:id/verify', ClaimAdmin.verifyClaim);
+router.put('/claims/:id/status', ClaimAdmin.manualUpdate);
+router.put('/claims/:id', ClaimAdmin.processClaim);
 
 export default router;

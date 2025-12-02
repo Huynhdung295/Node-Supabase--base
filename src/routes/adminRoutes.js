@@ -1,8 +1,11 @@
 import express from 'express';
-import { adminController } from '../controllers/adminController.js';
+import * as AdminUser from '../controllers/admin/user.controller.js';
+import * as AdminLink from '../controllers/admin/link.controller.js';
+import * as AdminSystem from '../controllers/admin/system.controller.js';
+import * as AdminStats from '../controllers/admin/stats.controller.js';
+import * as ClaimAdmin from '../controllers/claim/admin.controller.js';
 import { exchangeController } from '../controllers/exchangeController.js';
 import { tierController } from '../controllers/tierController.js';
-import { claimController } from '../controllers/claimController.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -12,14 +15,15 @@ router.use(authenticate);
 router.use(authorize('admin'));
 
 // User Management
-router.get('/users', adminController.getAllUsers);
-router.get('/users/:id', adminController.getUserDetails);
-router.put('/users/:id/role', adminController.updateUserRole);
+router.get('/users', AdminUser.getAllUsers);
+router.get('/users/:id', AdminUser.getUserDetails);
+router.put('/users/:id/role', AdminUser.updateUserRole);
 
 // Connection Management
-router.put('/users/links/:link_id', adminController.setCustomCommissionRate);
-router.patch('/users/links/:link_id/status', adminController.updateConnectionStatus);
-router.delete('/users/links/:link_id', adminController.deleteConnection);
+router.put('/users/links/:link_id', AdminLink.setCustomCommissionRate);
+router.patch('/users/links/:link_id/status', AdminLink.updateConnectionStatus);
+router.post('/users/links', AdminLink.createConnection);
+router.delete('/users/links/:link_id', AdminLink.deleteConnection);
 
 // Exchange Management
 router.get('/exchanges', exchangeController.getAllExchanges);
@@ -36,18 +40,18 @@ router.put('/tiers/:id', tierController.updateTier);
 router.delete('/tiers/:id', tierController.deleteTier);
 
 // Crawler Token Management
-router.get('/crawler-tokens', adminController.getCrawlerTokens);
-router.put('/crawler-tokens', adminController.updateCrawlerToken);
+router.get('/crawler-tokens', AdminSystem.getCrawlerTokens);
+router.put('/crawler-tokens', AdminSystem.updateCrawlerToken);
 
 // System Settings
-router.get('/settings', adminController.getSystemSettings);
-router.put('/settings', adminController.updateSystemSettings);
+router.get('/settings', AdminSystem.getSystemSettings);
+router.put('/settings', AdminSystem.updateSystemSettings);
 
 // Dashboard Statistics
-router.get('/stats', adminController.getDashboardStats);
+router.get('/stats', AdminStats.getDashboardStats);
 
 // Claims Management
-router.get('/claims', claimController.getAllClaims);
-router.put('/claims/:id', claimController.updateClaimStatus);
+router.get('/claims', ClaimAdmin.getAllClaims);
+router.put('/claims/:id', ClaimAdmin.updateClaimStatus);
 
 export default router;

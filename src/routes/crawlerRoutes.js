@@ -1,7 +1,13 @@
 import express from 'express';
 import { crawlerController } from '../controllers/crawlerController.js';
+import * as AdminCrawler from '../controllers/crawler/adminCrawlerController.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// ============================================
+// PUBLIC CRAWLER API (External crawlers)
+// ============================================
 
 /**
  * @swagger
@@ -51,5 +57,33 @@ const router = express.Router();
  *         description: Invalid token
  */
 router.post('/transactions', crawlerController.submitTransactions);
+
+// ============================================
+// ADMIN CRAWLER MANAGEMENT
+// ============================================
+
+// Admin-only: Manual refresh crawler
+router.post(
+  '/admin/refresh/:exchange_id',
+  authenticate,
+  authorize('admin'),
+  AdminCrawler.refreshExchangeCrawl
+);
+
+// Admin-only: Get crawler status
+router.get(
+  '/admin/status/:exchange_id',
+  authenticate,
+  authorize('admin'),
+  AdminCrawler.getCrawlerStatus
+);
+
+// Admin-only: View crawled commission data
+router.get(
+  '/admin/data/:exchange_id',
+  authenticate,
+  authorize('admin'),
+  AdminCrawler.getCommissionData
+);
 
 export default router;

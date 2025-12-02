@@ -3,7 +3,74 @@ import { successResponse, errorResponse } from '../utils/response.js';
 import { BadRequestError, UnauthorizedError, NotFoundError } from '../middleware/errorHandler.js';
 
 export const crawlerController = {
-  // POST /api/crawler/transactions - Submit transactions from crawler
+  /**
+   * @swagger
+   * /api/crawler/transactions:
+   *   post:
+   *     summary: Submit transactions from crawler (Crawler API)
+   *     tags: [Crawler]
+   *     security:
+   *       - crawlerToken: []
+   *     parameters:
+   *       - in: header
+   *         name: x-crawler-token
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Crawler authentication token
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - exchange_id
+   *               - transactions
+   *             properties:
+   *               exchange_id:
+   *                 type: string
+   *                 format: uuid
+   *                 description: Exchange ID
+   *               transactions:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   required:
+   *                     - exchange_uid
+   *                     - raw_volume
+   *                   properties:
+   *                     exchange_uid:
+   *                       type: string
+   *                       description: User's UID on the exchange
+   *                     raw_volume:
+   *                       type: number
+   *                       description: Transaction volume
+   *                     transaction_date:
+   *                       type: string
+   *                       format: date-time
+   *                     raw_data:
+   *                       type: object
+   *                       description: Additional transaction data
+   *     responses:
+   *       200:
+   *         description: Transactions processed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: integer
+   *                 failed:
+   *                   type: integer
+   *                 errors:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *       401:
+   *         description: Invalid or expired crawler token
+   */
   async submitTransactions(req, res, next) {
     try {
       const { exchange_id, transactions } = req.body;
@@ -73,8 +140,6 @@ export const crawlerController = {
             .single();
 
           if (linkError || !link) {
-            // User not linked, skip or log
-            // For now we skip, but in real app we might want to store "orphan" transactions
             throw new Error(`User link not found for UID ${exchange_uid}`);
           }
 
@@ -83,7 +148,6 @@ export const crawlerController = {
           if (link.custom_commission_rate !== null) {
             rate = parseFloat(link.custom_commission_rate);
           } else {
-            // Get tier config
             const tierId = link.profiles.current_tier_id;
             if (tierId) {
               const { data: tierConfig } = await supabaseAdmin
