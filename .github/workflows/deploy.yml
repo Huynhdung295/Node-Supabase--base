@@ -1,0 +1,40 @@
+name: Deploy Node.js to VPS
+
+on:
+  push:
+    branches:
+      - main  # Hoặc 'master' nếu nhánh chính của bạn tên là master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            # 1. Truy cập vào thư mục code trên VPS (tên folder giống trong ảnh bạn gửi)
+            cd /home/kyle_test_2_server
+            
+            # 2. Lấy code mới nhất về
+            # Vì đã setup SSH key, lệnh này sẽ chạy mượt mà
+            git pull origin main
+            
+            # 3. Build lại Docker Image (đặt tên là node-app)
+            docker build -t node-app .
+            
+            # 4. Dừng và xóa container cũ (nếu có) để tránh lỗi trùng tên
+            docker stop my-app-container || true
+            docker rm my-app-container || true
+            
+            # 5. Chạy container mới
+            # -p 80:3000 -> Map cổng 80 của VPS vào cổng 3000 của Node.js
+            # Để bạn truy cập web chỉ cần gõ IP, không cần :3000
+            docker run -d --restart always --name my-app-container -p 80:3000 node-app
+            
+            # 6. Dọn dẹp image rác cho sạch ổ cứng VPS
+            docker image prune -f
