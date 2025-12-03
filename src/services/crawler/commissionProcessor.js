@@ -48,7 +48,39 @@ export const processDailySnapshot = async (exchangeId, targetDate, crawledData) 
         results.unlinked++;
       }
 
-      // 2. Check if record already exists (prevent duplicate for past dates)
+      // 2. Get exchange default commission rate
+      const { data: exchange } = await supabaseAdmin
+        .from('exchanges')
+        .select('default_commission_rate')
+        .eq('id', exchangeId)
+        .single();
+
+      const exchangeCommissionRate = exchange?.default_commission_rate || 0.20; // 20% default
+
+      // 3. Get user's tier rate if linked
+      let tierRate = 0.00; // Default 0%
+      if (userId) {
+        const { data: userProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('current_tier_id')
+          .eq('id', userId)
+          .single();
+
+        if (userProfile?.current_tier_id) {
+          const { data: tierData } = await supabaseAdmin
+            .from('exchange_tiers')
+            .select('commission_percentage')
+            .eq('tier_id', userProfile.current_tier_id)
+            .eq('exchange_id', exchangeId)
+            .single();
+
+          if (tierData?.commission_percentage) {
+            tierRate = parseFloat(tierData.commission_percentage) / 100; // Convert to decimal
+          }
+        }
+      }
+
+      // 4. Check if record already exists (prevent duplicate for past dates)
       if (!isToday) {
         const { data: existing } = await supabaseAdmin
           .from('daily_commissions')
@@ -64,13 +96,22 @@ export const processDailySnapshot = async (exchangeId, targetDate, crawledData) 
         }
       }
 
-      // 3. Calculate commission values based on date
-      const totalCommissions = record.commissions + record.commissions_pending;
+      // 5. Calculate commission values with 2-step deduction
+      // RAW amount = Full commission from exchange (e.g., $100)
+      const rawTotalCommissions = record.commissions + record.commissions_pending;
+      
+      // Step 1: Apply exchange default commission (e.g., 20%)
+      // $100 * (1 - 0.20) = $80
+      const afterExchangeCommission = rawTotalCommissions * (1 - exchangeCommissionRate);
+      
+      // Step 2: Apply tier rate (e.g., 10% for Bronze)
+      // $80 * (1 - 0.10) = $72
+      const userTotalCommissions = afterExchangeCommission * (1 - tierRate);
       
       // SKIP ZERO-VALUE RECORDS
       // If everything is 0, don't save it
       if (
-        totalCommissions === 0 &&
+        rawTotalCommissions === 0 &&
         (record.trading_amount || 0) === 0 &&
         (record.deposits || 0) === 0
       ) {
@@ -95,16 +136,19 @@ export const processDailySnapshot = async (exchangeId, targetDate, crawledData) 
       // If today: Update pending, keep commissions as is
       // If past day: Finalize (pending → commissions)
       if (isToday) {
-        commissionData.commissions_pending = totalCommissions;
+        commissionData.raw_commissions_pending = rawTotalCommissions; // Store raw amount
+        commissionData.commissions_pending = userTotalCommissions; // Store user amount after both rates
         commissionData.is_finalized = false;
       } else {
-        commissionData.commissions = totalCommissions;
+        commissionData.raw_commissions = rawTotalCommissions; // Store raw amount
+        commissionData.commissions = userTotalCommissions; // Store user amount after both rates
+        commissionData.raw_commissions_pending = 0;
         commissionData.commissions_pending = 0;
         commissionData.is_finalized = true;
 
         // AUTO-CREATE TRANSACTION RECORD
         // Only if linked user, commission > 0, and not already created
-        if (userId && totalCommissions > 0) {
+        if (userId && userTotalCommissions > 0) {
           // Check if transaction already exists for this day/user/exchange
           const { data: existingTx } = await supabaseAdmin
             .from('transactions')
@@ -120,7 +164,7 @@ export const processDailySnapshot = async (exchangeId, targetDate, crawledData) 
               link_id: linkId,
               exchange_id: exchangeId,
               raw_volume: record.trading_amount || 0,
-              commission_amount: totalCommissions,
+              commission_amount: userTotalCommissions, // User's commission after both rates
               transaction_date: targetDate,
               raw_data: record.raw_data
             });

@@ -3,6 +3,7 @@ import * as AdminUser from '../controllers/admin/user.controller.js';
 import * as AdminLink from '../controllers/admin/link.controller.js';
 import * as AdminSystem from '../controllers/admin/system.controller.js';
 import * as AdminStats from '../controllers/admin/stats.controller.js';
+import * as AdminClaim from '../controllers/admin/claim.controller.js';
 import * as ClaimAdmin from '../controllers/claim/admin.controller.js';
 import { exchangeController } from '../controllers/exchangeController.js';
 import { tierController } from '../controllers/tierController.js';
@@ -50,8 +51,13 @@ router.put('/settings', AdminSystem.updateSystemSettings);
 // Dashboard Statistics
 router.get('/stats', AdminStats.getDashboardStats);
 
-// Claims Management
+// Claims Management - Legacy
 router.get('/claims', ClaimAdmin.getAllClaims);
 router.put('/claims/:id', ClaimAdmin.updateClaimStatus);
+
+// Claims Management - Admin Approval Workflow
+router.get('/claims/pending', AdminClaim.getAwaitingApproval);
+router.post('/claims/:id/approve', AdminClaim.approveClaim);
+router.post('/claims/:id/reject', AdminClaim.rejectClaim);
 
 export default router;

@@ -2,6 +2,7 @@ import express from 'express';
 import * as CSUser from '../controllers/cs/user.controller.js';
 import * as CSConnection from '../controllers/cs/connection.controller.js';
 import * as CSStats from '../controllers/cs/stats.controller.js';
+import * as CSClaim from '../controllers/cs/claim.controller.js';
 import * as ClaimAdmin from '../controllers/claim/admin.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
@@ -25,11 +26,18 @@ router.post('/users/links', CSConnection.createConnection);
 router.get('/connections', CSConnection.getPendingConnections);
 router.put('/connections/:id', CSConnection.processConnection);
 
-// Claim Management
+// Claim Management - Legacy
 router.get('/claims', ClaimAdmin.getPendingClaims);
 router.post('/claims/:id/send-code', ClaimAdmin.sendCSCode);
 router.post('/claims/:id/verify', ClaimAdmin.verifyClaim);
 router.put('/claims/:id/status', ClaimAdmin.manualUpdate);
 router.put('/claims/:id', ClaimAdmin.processClaim);
+
+// Claim Management - Admin Approval Workflow
+router.post('/claims/:id/request-approval', CSClaim.requestAdminApproval);
+router.post('/claims/:id/refund', CSClaim.processRefund);
+router.post('/claims/:id/re-request-admin', CSClaim.reRequestAdminApproval);
+router.get('/claims/approved', CSClaim.getAdminApprovedClaims);
+router.get('/claims/refund-pending', CSClaim.getClaimsNeedingRefund);
 
 export default router;

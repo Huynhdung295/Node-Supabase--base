@@ -95,9 +95,10 @@ export const getUserById = async (userId) => {
           logo_url
         )
       ),
-      claim_requests (
+      claim_requests!claim_requests_user_id_fkey (
         id,
         amount,
+        bonus_amount,
         status,
         created_at
       )
@@ -109,17 +110,46 @@ export const getUserById = async (userId) => {
     throw new NotFoundError('User not found');
   }
 
-  // Add commission summary
+  // Calculate per-exchange commission breakdown with raw amounts
   const { data: commissions } = await supabaseAdmin
     .from('daily_commissions')
-    .select('commissions, commissions_pending')
+    .select('exchange_id, commissions, commissions_pending, raw_commissions, raw_commissions_pending')
     .eq('user_id', userId);
 
+  const exchangeCommissions = {};
+  commissions?.forEach(c => {
+    if (!exchangeCommissions[c.exchange_id]) {
+      exchangeCommissions[c.exchange_id] = {
+        raw_total: 0,
+        user_total: 0,
+        raw_finalized: 0,
+        user_finalized: 0,
+        raw_pending: 0,
+        user_pending: 0
+      };
+    }
+    const ec = exchangeCommissions[c.exchange_id];
+    ec.raw_finalized += parseFloat(c.raw_commissions || 0);
+    ec.user_finalized += parseFloat(c.commissions || 0);
+    ec.raw_pending += parseFloat(c.raw_commissions_pending || 0);
+    ec.user_pending += parseFloat(c.commissions_pending || 0);
+    ec.raw_total = ec.raw_finalized + ec.raw_pending;
+    ec.user_total = ec.user_finalized + ec.user_pending;
+  });
+
+  // Add commission summary
   const total_finalized = commissions?.reduce((sum, c) => sum + parseFloat(c.commissions || 0), 0) || 0;
   const total_pending = commissions?.reduce((sum, c) => sum + parseFloat(c.commissions_pending || 0), 0) || 0;
 
+  // Calculate total withdrawals
+  const totalWithdrawn = user.claim_requests
+    ?.filter(c => c.status === 'transferred')
+    .reduce((sum, c) => sum + parseFloat(c.amount || 0), 0) || 0;
+
   return {
     ...user,
+    exchange_commissions: exchangeCommissions,
+    total_withdrawn: totalWithdrawn,
     commission_summary: {
       finalized: total_finalized,
       pending: total_pending,

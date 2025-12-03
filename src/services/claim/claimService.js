@@ -22,10 +22,10 @@ const generateVerificationCode = () => {
 };
 
 export const createClaim = async (userId, amount) => {
-  // Get user's exchange email (first verified exchange)
+  // Get user's exchange connection and exchange_id
   const { data: connection } = await supabaseAdmin
     .from('user_exchange_links')
-    .select('exchange_email, exchanges(name)')
+    .select('exchange_id, exchange_email, exchanges(name)')
     .eq('user_id', userId)
     .eq('status', 'verified')
     .not('exchange_email', 'is', null)
@@ -36,12 +36,11 @@ export const createClaim = async (userId, amount) => {
     throw new BadRequestError('No verified exchange email found. Please add and verify your exchange email first.');
   }
 
-  // Generate 8-char verification code with special characters
+  // Generate verification code
   const verification_code = generateVerificationCode();
-  
-  // Set expiry to 5 minutes from now
   const code_expiry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
+  // Create claim (tier bonus removed - tier rate is applied at crawl time)
   const { data: claim, error } = await supabaseAdmin
     .from('claim_requests')
     .insert({
@@ -58,7 +57,7 @@ export const createClaim = async (userId, amount) => {
 
   if (error) throw error;
 
-  // Send verification email to exchange email
+  // Send verification email
   await EmailService.sendVerificationCode(connection.exchange_email, verification_code, 5);
 
   return { 
@@ -218,7 +217,17 @@ export const getPendingClaims = async () => {
         full_name
       )
     `)
-    .in('status', ['pending', 'email_verified', 'verified'])
+    .in('status', [
+      'pending', 
+      'email_verified', 
+      'verified',
+      'awaiting_admin_approval',
+      'admin_approved',
+      'admin_rejected',
+      'rejected',
+      'transferred',
+      'refunded'
+    ])
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -357,9 +366,7 @@ export const updateClaimStatus = async (claimId, status, csUserId, notes = null)
     .from('claim_requests')
     .update({
       status,
-      notes,
-      processed_by: csUserId,
-      processed_at: new Date().toISOString()
+      processed_by: csUserId
     })
     .eq('id', claimId)
     .select()
@@ -369,6 +376,308 @@ export const updateClaimStatus = async (claimId, status, csUserId, notes = null)
 
   return claim;
 };
+
+// ========================================
+// ADMIN APPROVAL WORKFLOW FUNCTIONS
+// ========================================
+
+// Helper to append notes with timestamp and role
+const appendNote = (currentNotes, newNote, role, action) => {
+  const timestamp = new Date().toLocaleString('vi-VN');
+  const entry = `[${timestamp}] [${role} ${action}]: ${newNote}`;
+  return currentNotes ? `${currentNotes}\n\n${entry}` : entry;
+};
+
+/**
+ * CS requests admin approval for a claim
+ */
+export const requestAdminApproval = async (claimId, csUserId, notes = null) => {
+  const { data: claim } = await supabaseAdmin
+    .from('claim_requests')
+    .select('status, user_id, cs_note')
+    .eq('id', claimId)
+    .single();
+
+  if (!claim) {
+    throw new NotFoundError('Claim request not found');
+  }
+
+  // Can only request approval from verified statuses
+  const validStatuses = ['pending', 'email_verified', 'verified'];
+  if (!validStatuses.includes(claim.status)) {
+    throw new BadRequestError(`Cannot request admin approval from status: ${claim.status}`);
+  }
+
+  let updatedNotes = claim.cs_note;
+  if (notes) {
+    updatedNotes = appendNote(claim.cs_note, notes, 'CS', 'Request');
+  }
+
+  const { data: updated, error } = await supabaseAdmin
+    .from('claim_requests')
+    .update({
+      status: 'awaiting_admin_approval',
+      cs_note: updatedNotes,
+      processed_by: csUserId
+    })
+    .eq('id', claimId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return updated;
+};
+
+/**
+ * Admin approves a claim
+ */
+export const adminApproveClaim = async (claimId, adminUserId, notes = null) => {
+  const { data: claim } = await supabaseAdmin
+    .from('claim_requests')
+    .select('status, cs_note')
+    .eq('id', claimId)
+    .single();
+
+  if (!claim) {
+    throw new NotFoundError('Claim request not found');
+  }
+
+  if (claim.status !== 'awaiting_admin_approval') {
+    throw new BadRequestError('Claim is not awaiting admin approval');
+  }
+
+  let updatedNotes = claim.cs_note;
+  if (notes) {
+    updatedNotes = appendNote(claim.cs_note, notes, 'Admin', 'Approve');
+  } else {
+    updatedNotes = appendNote(claim.cs_note, 'Approved', 'Admin', 'Approve');
+  }
+
+  const { data: updated, error } = await supabaseAdmin
+    .from('claim_requests')
+    .update({
+      status: 'admin_approved',
+      admin_approved_by: adminUserId,
+      admin_approved_at: new Date().toISOString(),
+      admin_notes: notes, // Keep last note in dedicated column too
+      cs_note: updatedNotes // Append to conversation history
+    })
+    .eq('id', claimId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return updated;
+};
+
+/**
+ * Admin rejects a claim
+ */
+export const adminRejectClaim = async (claimId, adminUserId, reason) => {
+  const { data: claim } = await supabaseAdmin
+    .from('claim_requests')
+    .select('status, cs_note')
+    .eq('id', claimId)
+    .single();
+
+  if (!claim) {
+    throw new NotFoundError('Claim request not found');
+  }
+
+  if (claim.status !== 'awaiting_admin_approval') {
+    throw new BadRequestError('Claim is not awaiting admin approval');
+  }
+
+  const updatedNotes = appendNote(claim.cs_note, reason, 'Admin', 'Reject');
+
+  const { data: updated, error } = await supabaseAdmin
+    .from('claim_requests')
+    .update({
+      status: 'admin_rejected',
+      admin_approved_by: adminUserId,
+      admin_approved_at: new Date().toISOString(),
+      admin_notes: reason,
+      cs_note: updatedNotes
+    })
+    .eq('id', claimId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return updated;
+};
+
+/**
+ * CS processes refund for rejected claim
+ */
+export const refundClaim = async (claimId, csUserId) => {
+  const { data: claim } = await supabaseAdmin
+    .from('claim_requests')
+    .select('status, amount, user_id, cs_note')
+    .eq('id', claimId)
+    .single();
+
+  if (!claim) {
+    throw new NotFoundError('Claim request not found');
+  }
+
+  // Can only refund from rejected statuses
+  const refundableStatuses = ['rejected', 'admin_rejected'];
+  if (!refundableStatuses.includes(claim.status)) {
+    throw new BadRequestError(`Cannot refund claim with status: ${claim.status}`);
+  }
+
+  const updatedNotes = appendNote(claim.cs_note, 'Refund Processed', 'CS', 'Refund');
+
+  const { data: updated, error} = await supabaseAdmin
+    .from('claim_requests')
+    .update({
+      status: 'refunded',
+      refunded_by: csUserId,
+      refunded_at: new Date().toISOString(),
+      refund_amount: claim.amount,
+      cs_note: updatedNotes
+    })
+    .eq('id', claimId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return updated;
+};
+
+/**
+ * CS re-requests admin approval (for corrections)
+ */
+export const reRequestAdminApproval = async (claimId, csUserId, reason) => {
+  const { data: claim } = await supabaseAdmin
+    .from('claim_requests')
+    .select('status, cs_note')
+    .eq('id', claimId)
+    .single();
+
+  if (!claim) {
+    throw new NotFoundError('Claim request not found');
+  }
+
+  // Can only re-request from admin-decided statuses
+  const validStatuses = ['admin_approved', 'admin_rejected'];
+  if (!validStatuses.includes(claim.status)) {
+    throw new BadRequestError(`Cannot re-request from status: ${claim.status}`);
+  }
+
+  // Append re-request reason to existing notes
+  const updatedNotes = appendNote(claim.cs_note, reason, 'CS', 'Re-Request');
+
+  const { data: updated, error } = await supabaseAdmin
+    .from('claim_requests')
+    .update({
+      status: 'awaiting_admin_approval',
+      cs_note: updatedNotes,
+      processed_by: csUserId,
+      // Clear previous admin decision
+      admin_approved_by: null,
+      admin_approved_at: null,
+      admin_notes: null
+    })
+    .eq('id', claimId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return updated;
+};
+
+/**
+ * Get claims awaiting admin approval
+ */
+export const getClaimsAwaitingAdmin = async () => {
+  const { data: claims, error } = await supabaseAdmin
+    .from('claim_requests')
+    .select(`
+      *,
+      user:profiles!claim_requests_user_id_fkey (
+        id,
+        email,
+        full_name
+      ),
+      cs_user:profiles!claim_requests_processed_by_fkey (
+        id,
+        email,
+        full_name
+      )
+    `)
+    .eq('status', 'awaiting_admin_approval')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  // Transform to expected format
+  return claims.map(claim => ({
+    ...claim,
+    profiles: claim.user,
+    processed_by_user: claim.cs_user
+  }));
+};
+
+/**
+ * Get admin-approved claims (CS can transfer these)
+ */
+export const getAdminApprovedClaims = async () => {
+  const { data: claims, error } = await supabaseAdmin
+    .from('claim_requests')
+    .select(`
+      *,
+      user:profiles!claim_requests_user_id_fkey (
+        id,
+        email,
+        full_name
+      )
+    `)
+    .eq('status', 'admin_approved')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return claims.map(claim => ({
+    ...claim,
+    profiles: claim.user
+  }));
+};
+
+/**
+ * Get claims needing refund (rejected but not refunded)
+ */
+export const getClaimsNeedingRefund = async () => {
+  const { data: claims, error } = await supabaseAdmin
+    .from('claim_requests')
+    .select(`
+      *,
+      user:profiles!claim_requests_user_id_fkey (
+        id,
+        email,
+        full_name
+      )
+    `)
+    .in('status', ['rejected', 'admin_rejected'])
+    .order('created_at', { ascending: false});
+
+  if (error) throw error;
+
+  return claims.map(claim => ({
+    ...claim,
+    profiles: claim.user
+  }));
+};
+
+// ========================================
+// LEGACY / BACKWARD COMPATIBILITY
+// ========================================
 
 // Keep backward compatibility
 export const processClaim = async (claimId, status, notes = null) => {
@@ -381,8 +690,7 @@ export const processClaim = async (claimId, status, notes = null) => {
     .from('claim_requests')
     .update({
       status,
-      notes,
-      processed_at: new Date().toISOString()
+      cs_note: notes
     })
     .eq('id', claimId)
     .select()
